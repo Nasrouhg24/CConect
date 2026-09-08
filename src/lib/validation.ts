@@ -122,10 +122,18 @@ export const companyProfileSchema = z.object({
  */
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/;
 const PHONE_RE = /(?:\+?\d[\s.\-()]?){8,}/;
+/** Dates et horodatages : des suites de chiffres légitimes en texte libre. */
+const DATE_LIKE_RE =
+  /\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?Z?)?|\d{1,2}\/\d{1,2}\/\d{2,4}/g;
 
 export function findPrivateContactDetails(text: string): string | null {
   if (EMAIL_RE.test(text)) return "l'adresse email";
-  if (PHONE_RE.test(text)) return "le numéro de téléphone";
+  // Les dates sont retirées d'abord : « du 2026-01-05 au 2026-06-30 » aligne
+  // assez de chiffres pour ressembler à un numéro, et refuser ce texte
+  // légitime rendrait le garde-fou pénible au point d'être contourné.
+  if (PHONE_RE.test(text.replace(DATE_LIKE_RE, " "))) {
+    return "le numéro de téléphone";
+  }
   return null;
 }
 
