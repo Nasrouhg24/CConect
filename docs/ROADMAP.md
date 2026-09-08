@@ -23,22 +23,38 @@ marcher dessus. Les tâches marquées 🟢 sont de bons premiers tickets.
 - [x] Profil membre : LinkedIn public et email institutionnel
 - [x] Modale de contact générant un brouillon Outlook
 - [x] Design system documenté (docs/DESIGN_SYSTEM.md)
+- [x] Entreprises comme entités : secteur, logo, site, LinkedIn, description, siège
+- [x] Offres de stage (table dédiée), liste, fiche, publication
+- [x] Contacts structurés (prénom, nom, poste, notes) rattachés à une entreprise
+- [x] Sélecteur d'entreprise avec autocomplétion et anti-doublons
+- [x] Modification, suppression et changement d'entreprise d'un contact
+- [x] Suite de tests automatisés (77 tests, npm test)
+- [x] Lectures ciblées et agrégats côté base (fiche entreprise, profil,
+      compteurs, statistiques) — plus de table entière chargée pour afficher
+      une poignée de lignes
+- [x] Pagination systématique des lectures (PostgREST tronque à 1 000 lignes
+      en silence)
+- [x] Mémoïsation des lectures par requête (`cache` de React)
+- [x] Index composites filtre + tri, et politiques RLS en InitPlan
 
 ## Lot 1 — Fiabilité (prioritaire)
 
-- [ ] **Tests unitaires de `src/lib/entries.ts`** (filtrage, clustering, stats) 🟢
-- [ ] Tests des schémas zod, dont `findPrivateContactDetails` 🟢
 - [ ] Test e2e Playwright : filtrer → cliquer un marqueur → contribuer
-- [ ] CI GitHub Actions : `lint` + `typecheck` + `test` + `build` sur chaque PR 🟢
-- [ ] Tests des politiques RLS (un membre ne peut pas modifier l'entrée d'un autre)
+- [x] CI GitHub Actions : lint + typecheck + test + build sur chaque PR
+- [x] Tests des politiques RLS, sur un vrai Postgres jetable
+      (`tests/database-security.test.ts`) : les migrations sont rejouées et le
+      résultat est attaqué en se faisant passer pour un membre, un modérateur,
+      un compte hors périmètre, un visiteur
+- [x] CI durcie : `permissions` minimales, actions épinglées par SHA,
+      `npm audit` et Semgrep bloquants, Dependabot
 
 ## Lot 2 — Modération et qualité des données
 
 - [ ] Interface de signalement depuis une carte d'entrée 🟢
-- [ ] Tableau de bord modérateur (traiter les `reports`)
-- [ ] Modification et suppression de ses propres contributions
+- [ ] Tableau de bord modérateur (traiter les `reports` et lire `audit_log`) 🟢
+- [x] Journal d'audit des changements de rôle et des actions de modération
+- [x] Modification et suppression des contacts, des offres et des expériences
 - [ ] Fusion des doublons d'entreprises (`Microsoft` / `Microsoft France`)
-- [ ] Journal d'audit des modifications
 
 ## Lot 3 — Produit
 
@@ -50,6 +66,18 @@ marcher dessus. Les tâches marquées 🟢 sont de bons premiers tickets.
 - [ ] Export CSV filtré, pour le service carrière
 - [ ] Notifications : « une entrée vient d'être ajoutée chez X »
 
+## Lot 3 bis — Passage à l'échelle (le reste)
+
+- [ ] Carte dessinée à partir d'un agrégat par ville, détail chargé à
+      l'ouverture du panneau — aujourd'hui `/network` transfère toutes les
+      contributions au navigateur 🟢
+- [ ] Recherche d'entreprise côté serveur pour le sélecteur, au lieu d'envoyer
+      l'annuaire complet
+- [ ] Vérifier les migrations sur un Postgres jetable dans la CI
+      (`supabase db reset`), aujourd'hui elles ne sont validées qu'à la main
+- [ ] Mesurer : `explain analyze` sur les requêtes chaudes avec un jeu de
+      100 000 contributions généré
+
 ## Lot 4 — Carte
 
 - [ ] Regroupement dynamique des marqueurs superposés en Europe 🟢
@@ -60,11 +88,33 @@ marcher dessus. Les tâches marquées 🟢 sont de bons premiers tickets.
 
 ## Lot 5 — Exploitation
 
-- [ ] Limitation de débit sur l'envoi de liens magiques et sur les écritures
+- [x] Limitation de débit sur les écritures, appliquée par un déclencheur en
+      base — donc valable aussi pour une écriture directe dans PostgREST
+- [ ] Limitation de débit sur l'envoi de liens magiques par IP (Supabase ou
+      réseau) — le hook `restrict_signup_domain` traite le domaine, pas le débit
 - [ ] Environnement de préproduction + déploiement automatique
 - [ ] Supervision des erreurs
 - [ ] Sauvegardes vérifiées et procédure de restauration documentée
 - [ ] Politique de rétention et procédure de retrait sur demande d'un contact
+
+## Lot 6 — Suites de l'audit de sécurité
+
+Corrigés et verrouillés par des tests (voir `tests/database-security.test.ts`
+et `tests/security.test.ts`) : élévation de privilège à la création du profil,
+règle des coordonnées privées appliquée en base, signalements réservés aux
+membres, création de villes réservée à la modération, forme canonique dérivée
+en base, CSP à nonce, cookie de session borné, redirection ouverte, messages
+Postgres bruts, build de déploiement sans backend, journal d'audit.
+
+Reste à faire :
+
+- [ ] **Activer le hook `restrict_signup_domain`** dans le tableau de bord
+      Supabase, et configurer un SMTP dédié. Tant que ce n'est pas fait,
+      l'envoi de liens de connexion reste ouvert à Internet 🔴
+- [ ] Valider les contraintes `no_private_details` (`alter table … validate
+      constraint`) après avoir nettoyé les lignes existantes
+- [ ] Interface de traitement des signalements et du journal d'audit
+- [ ] Rétention : purge automatique de `audit_log` et de `write_rate_events`
 
 ## Idées à discuter
 
