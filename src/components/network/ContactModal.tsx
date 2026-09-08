@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { CAMPUS_LABELS, EXPERIENCE_KIND_LABELS, STATUS_LABELS } from "@/lib/labels";
-import type { Entry } from "@/lib/types";
+import { contactDisplayName, type Entry } from "@/lib/types";
 
 type Reason =
   | "internship"
@@ -77,7 +77,7 @@ export function ContactModal({
 
   const context =
     entry.entryKind === "contact"
-      ? `Sur CConnect, tu as ajouté un contact chez ${entry.company.name} (${entry.place.city}) : ${entry.contactName}, ${entry.headline}.`
+      ? `Sur CConnect, tu as ajouté un contact chez ${entry.company.name} (${entry.place.city}) : ${contactDisplayName(entry.contactFirstName ?? "", entry.contactLastName)}, ${entry.headline}.`
       : `Sur CConnect, tu as partagé ton expérience « ${entry.headline} » chez ${entry.company.name} (${entry.place.city}${
           entry.experienceKind
             ? `, ${EXPERIENCE_KIND_LABELS[entry.experienceKind]} ${entry.year}`

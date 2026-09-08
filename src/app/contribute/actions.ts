@@ -1,12 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { rateLimitMessage } from "@/lib/rate-limit";
+import { enforceWriteQuota } from "@/lib/rate-limit-server";
 import {
   createContact,
   createExperience,
   createJobOffer,
   findOrCreateCompany,
-  getCompanies,
+  getCompanyById,
   getCurrentMember,
 } from "@/lib/repository";
 import type { Company } from "@/lib/types";
@@ -57,8 +59,7 @@ async function resolveCompany(
   authorId: string,
 ): Promise<{ company: Company; created: boolean }> {
   if (input.companyId) {
-    const companies = await getCompanies();
-    const existing = companies.find((c) => c.id === input.companyId);
+    const existing = await getCompanyById(input.companyId);
     if (existing) return { company: existing, created: false };
   }
 
@@ -135,6 +136,11 @@ export async function submitContribution(
   const member = await getCurrentMember();
   if (!member) {
     return { ok: false, message: "Session expirée — reconnecte-toi pour publier." };
+  }
+
+  const limit = await enforceWriteQuota("contribute", `contribute:${member.id}`);
+  if (!limit.ok) {
+    return { ok: false, message: rateLimitMessage(limit.retryAfterSeconds) };
   }
 
   let company: Company;

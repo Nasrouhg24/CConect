@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/Brand";
 import { SiteFooter } from "@/components/PageShell";
-import { computeStats } from "@/lib/entries";
-import { getEntries } from "@/lib/repository";
+import { getNetworkStats } from "@/lib/repository";
 
 export default async function HomePage() {
-  const stats = computeStats(await getEntries());
+  const stats = await getNetworkStats();
 
   const figures = [
     { value: stats.countries, label: "pays" },
@@ -53,7 +52,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <dl className="grid grid-cols-3 gap-x-6 gap-y-8 border-l border-border pl-8">
+          <dl className="grid grid-cols-3 gap-x-6 gap-y-8 border-t border-border pt-8 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
             {figures.map((figure) => (
               <div key={figure.label}>
                 <dd className="font-mono text-[28px] tabular-nums leading-none text-text">
@@ -69,17 +68,14 @@ export default async function HomePage() {
 
         <section className="grid gap-px overflow-hidden rounded-md border border-border bg-border md:grid-cols-3">
           <Panel
-            index="01"
             title="Une carte, pas un annuaire"
             body="Continent, pays, ville, entreprise, domaine, campus, promo, type de stage : chaque filtre redessine la carte."
           />
           <Panel
-            index="02"
             title="Le contact passe par un membre"
             body="Sarah, Cybersecurity Recruiter chez Microsoft Paris, ajoutée par Ahmed. Tu ne contactes pas Sarah : tu contactes Ahmed, qui décide."
           />
           <Panel
-            index="03"
             title="Pas besoin d'y avoir travaillé"
             body="« Je n'ai jamais bossé chez Google, mais je connais un Software Engineer à Berlin. » Cette phrase vaut une entrée."
           />
@@ -111,19 +107,19 @@ export default async function HomePage() {
   );
 }
 
-function Panel({
-  index,
-  title,
-  body,
-}: {
-  index: string;
-  title: string;
-  body: string;
-}) {
+/**
+ * Les trois principes du produit.
+ *
+ * Ils portaient un numéro (01, 02, 03). Un numéro annonce une séquence — une
+ * étape après l'autre — alors que ce sont trois propositions indépendantes :
+ * on peut lire la troisième sans la première. La hiérarchie typographique
+ * suffit à les séparer, et le repère chiffré est rendu à ce qui compte
+ * vraiment dans cette interface, les décomptes.
+ */
+function Panel({ title, body }: { title: string; body: string }) {
   return (
     <article className="bg-base p-7">
-      <p className="font-mono text-[11px] text-accent">{index}</p>
-      <h3 className="mt-4 text-[15px] font-medium text-text">{title}</h3>
+      <h3 className="text-[15px] font-medium text-text">{title}</h3>
       <p className="mt-2 text-[13px] leading-relaxed text-text-muted">{body}</p>
     </article>
   );

@@ -3,8 +3,13 @@ import { PageShell } from "@/components/PageShell";
 import { ProfileChannels } from "@/components/ProfileChannels";
 import { summarize } from "@/lib/entries";
 import { CAMPUS_LABELS, STATUS_LABELS } from "@/lib/labels";
-import { getCurrentMember, getEntries, isDemoMode } from "@/lib/repository";
+import {
+  getCurrentMember,
+  getEntriesByAuthor,
+  isDemoMode,
+} from "@/lib/repository";
 import { Metric } from "@/components/ui";
+import { contactDisplayName } from "@/lib/types";
 
 export const metadata = { title: "Profil" };
 
@@ -29,7 +34,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const mine = (await getEntries()).filter((e) => e.author.id === member.id);
+  const mine = await getEntriesByAuthor(member.id);
   const summary = summarize(mine);
 
   return (
@@ -77,7 +82,7 @@ export default async function ProfilePage() {
                 <div className="min-w-0">
                   <p className="truncate text-[14px] text-text">
                     {entry.entryKind === "contact"
-                      ? `${entry.contactName} — ${entry.headline}`
+                      ? `${contactDisplayName(entry.contactFirstName ?? "", entry.contactLastName)} — ${entry.headline}`
                       : entry.headline}
                   </p>
                   <p className="text-[12px] text-text-faint">

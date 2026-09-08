@@ -9,7 +9,15 @@ import {
   EXPERIENCE_KIND_LABELS,
   INDUSTRY_LABELS,
 } from "@/lib/labels";
-import { getCompanyBundle, getJobOffer } from "@/lib/repository";
+import { OfferEditor } from "@/components/offers/OfferEditor";
+import { isOfferExpired } from "@/lib/offers";
+import {
+  getCompanies,
+  getCompanyBundle,
+  getCurrentMember,
+  getJobOffer,
+  getPlaces,
+} from "@/lib/repository";
 
 export async function generateMetadata({ params }: PageProps<"/offers/[id]">) {
   const { id } = await params;
@@ -24,9 +32,14 @@ export default async function OfferPage({ params }: PageProps<"/offers/[id]">) {
 
   // La fiche entreprise est la source des chiffres : une offre ne duplique
   // jamais ce que l'entreprise sait déjà d'elle-même.
-  const bundle = await getCompanyBundle(offer.company.slug);
-  const expired =
-    offer.expiresAt !== null && new Date(offer.expiresAt) < new Date();
+  const [bundle, member, companies, places] = await Promise.all([
+    getCompanyBundle(offer.company.slug),
+    getCurrentMember(),
+    getCompanies(),
+    getPlaces(),
+  ]);
+  const expired = isOfferExpired(offer);
+  const isAuthor = member?.id === offer.postedBy.id;
 
   return (
     <PageShell title={offer.title} width="narrow">
@@ -137,6 +150,10 @@ export default async function OfferPage({ params }: PageProps<"/offers/[id]">) {
           Publiée par {offer.postedBy.fullName}
         </p>
       </div>
+
+      {isAuthor ? (
+        <OfferEditor offer={offer} companies={companies} places={places} />
+      ) : null}
     </PageShell>
   );
 }

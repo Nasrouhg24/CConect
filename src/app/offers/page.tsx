@@ -1,19 +1,15 @@
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
 import { OfferCard } from "@/components/offers/OfferCard";
+import { EmptyState } from "@/components/ui/feedback";
+import { splitByExpiry } from "@/lib/offers";
 import { getJobOffers } from "@/lib/repository";
 
 export const metadata = { title: "Offres" };
 
 export default async function OffersPage() {
   const offers = await getJobOffers();
-  const now = Date.now();
-  const open = offers.filter(
-    (o) => !o.expiresAt || new Date(o.expiresAt).getTime() >= now,
-  );
-  const closed = offers.filter(
-    (o) => o.expiresAt && new Date(o.expiresAt).getTime() < now,
-  );
+  const { open, expired: closed } = splitByExpiry(offers);
 
   return (
     <PageShell
@@ -29,12 +25,11 @@ export default async function OffersPage() {
       }
     >
       {offers.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center">
-          <p className="text-sm text-text-muted">Aucune offre pour l&apos;instant.</p>
-          <p className="mt-1 text-[13px] text-text-faint">
-            La première annonce publiée servira à toute la promo.
-          </p>
-        </div>
+        <EmptyState
+          title="Aucune offre ouverte"
+          body="Les annonces viennent des membres : une entreprise qui recrute, un stage repéré, une candidature spontanée qui a fonctionné. La première publiée servira à toute la promo."
+          action={{ href: "/contribute", label: "Publier une offre" }}
+        />
       ) : (
         <>
           <ul className="grid gap-3 md:grid-cols-2">
@@ -45,12 +40,25 @@ export default async function OffersPage() {
             ))}
           </ul>
 
+          {open.length === 0 ? (
+            <EmptyState
+              compact
+              title="Aucune offre encore ouverte"
+              body="Toutes les annonces publiées ont expiré. Elles restent consultables plus bas : une offre passée indique quand même une entreprise qui recrute des profils comme les nôtres."
+              action={{ href: "/contribute", label: "Publier une offre" }}
+            />
+          ) : null}
+
           {closed.length > 0 ? (
-            <section className="mt-10">
-              <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+            <section className="mt-12 border-t border-border pt-8">
+              <h2 className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
                 Offres expirées · {closed.length}
               </h2>
-              <ul className="grid gap-3 opacity-60 md:grid-cols-2">
+              <p className="mb-4 max-w-2xl text-[12px] leading-relaxed text-text-faint">
+                Gardées volontairement : la date est passée, mais l&apos;entreprise
+                et la personne qui l&apos;a publiée restent des pistes.
+              </p>
+              <ul className="grid gap-3 md:grid-cols-2">
                 {closed.map((offer) => (
                   <li key={offer.id}>
                     <OfferCard offer={offer} />

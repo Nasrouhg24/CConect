@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { DomainDot } from "@/components/ui";
 import { EXPERIENCE_KIND_LABELS } from "@/lib/labels";
+import { isOfferExpired } from "@/lib/offers";
 import type { JobOffer } from "@/lib/types";
 
 /**
@@ -12,8 +13,7 @@ import type { JobOffer } from "@/lib/types";
  * Le nom est un lien vers la fiche entreprise, distinct du lien vers l'offre.
  */
 export function OfferCard({ offer }: { offer: JobOffer }) {
-  const expired =
-    offer.expiresAt !== null && new Date(offer.expiresAt) < new Date();
+  const expired = isOfferExpired(offer);
 
   return (
     <article className="group relative rounded-md border border-border bg-surface p-4 transition-colors hover:border-border-strong hover:bg-surface-raised">

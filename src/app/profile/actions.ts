@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { describeDbError, reportDbError } from "@/lib/db-error";
 import { demoStore } from "@/lib/demo-store";
 import { getCurrentMember, isDemoMode } from "@/lib/repository";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -57,7 +58,10 @@ export async function updateContactChannels(
       .from("profiles")
       .update({ linkedin_url: linkedinUrl, contact_email: contactEmail })
       .eq("id", member.id);
-    if (error) return { ok: false, message: error.message };
+    if (error) {
+      reportDbError("profile.updateContactChannels", error);
+      return { ok: false, message: describeDbError(error) };
+    }
   }
 
   revalidatePath("/profile");

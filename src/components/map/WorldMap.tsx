@@ -266,10 +266,10 @@ export function WorldMap({
               : undefined,
           }}
         >
-          <path d={spherePath} fill="#090e15" />
+          <path d={spherePath} fill="var(--color-map-ocean)" />
           <g
-            fill="#1a242f"
-            stroke="#2b3846"
+            fill="var(--color-map-land)"
+            stroke="var(--color-map-border)"
             strokeWidth={0.6}
             vectorEffect="non-scaling-stroke"
           >

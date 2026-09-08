@@ -6,7 +6,7 @@ import { summarize } from "@/lib/entries";
 import { DOMAIN_LABELS, EXPERIENCE_KIND_LABELS } from "@/lib/labels";
 import { Button, DomainDot, Metric } from "@/components/ui";
 import { ContactModal } from "./ContactModal";
-import type { Entry, Place } from "@/lib/types";
+import { contactDisplayName, type Entry, type Place } from "@/lib/types";
 
 /**
  * Panneau contextuel d'une ville.
@@ -102,7 +102,9 @@ export function PlaceDrawer({
                     <p className="text-[13px] text-text">
                       {entry.entryKind === "contact" ? (
                         <>
-                          <span className="font-medium">{entry.contactName}</span>
+                          <span className="font-medium">
+                            {contactDisplayName(entry.contactFirstName ?? "", entry.contactLastName)}
+                          </span>
                           <span className="text-text-muted"> · {entry.headline}</span>
                         </>
                       ) : (
