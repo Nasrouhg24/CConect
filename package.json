@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:sql": "node scripts/generate-seed-sql.mjs",
+    "test": "node --test --experimental-strip-types --import=./tests/ts-resolver.mjs --test-reporter=spec \"tests/*.test.ts\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",
@@ -22,6 +24,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/d3-geo": "^3.1.1",
     "@types/geojson": "^7946.0.16",
