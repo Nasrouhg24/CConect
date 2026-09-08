@@ -42,3 +42,5 @@ next-env.d.ts
 
 # Le fichier d'exemple doit rester versionné.
 !.env.example
+
+.vercel
