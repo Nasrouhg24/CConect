@@ -8,7 +8,12 @@ import { OfferCard } from "@/components/offers/OfferCard";
 import { DomainDot, Metric } from "@/components/ui";
 import { summarize } from "@/lib/entries";
 import { DOMAIN_LABELS, INDUSTRY_LABELS } from "@/lib/labels";
-import { getCompanyBundle, getCurrentMember, getPlaces } from "@/lib/repository";
+import {
+  getCompanies,
+  getCompanyBundle,
+  getCurrentMember,
+  getPlaces,
+} from "@/lib/repository";
 
 export async function generateMetadata({ params }: PageProps<"/companies/[slug]">) {
   const { slug } = await params;
@@ -22,7 +27,11 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
   if (!bundle) notFound();
 
   const { company, offers, contacts, experiences } = bundle;
-  const [places, member] = await Promise.all([getPlaces(), getCurrentMember()]);
+  const [places, member, allCompanies] = await Promise.all([
+    getPlaces(),
+    getCurrentMember(),
+    getCompanies(),
+  ]);
   const summary = summarize(experiences);
   const cities = [
     ...new Map(
@@ -116,7 +125,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
           <CompanyContacts
             contacts={contacts}
             currentMemberId={member?.id ?? null}
-            companies={[company]}
+            companies={allCompanies}
             places={places}
           />
         )}
@@ -131,7 +140,12 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
             Aucun membre n&apos;a encore partagé d&apos;expérience ici.
           </EmptyBlock>
         ) : (
-          <CompanyExperiences entries={experiences} />
+          <CompanyExperiences
+            entries={experiences}
+            currentMemberId={member?.id ?? null}
+            companies={allCompanies}
+            places={places}
+          />
         )}
       </section>
 

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { describeDbError, reportDbError } from "@/lib/db-error";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { campusSchema } from "@/lib/validation";
 
@@ -52,7 +53,10 @@ export async function createProfile(
     linkedin_url: parsed.data.linkedinUrl?.trim() || null,
   });
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    reportDbError("onboarding.createProfile", error);
+    return { ok: false, message: describeDbError(error) };
+  }
 
   redirect("/network");
 }

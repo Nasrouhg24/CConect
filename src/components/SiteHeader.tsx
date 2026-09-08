@@ -8,17 +8,21 @@ import type { Author } from "@/lib/types";
 
 const NAV = [
   { href: "/network", label: "Réseau" },
+  { href: "/offers", label: "Offres" },
   { href: "/companies", label: "Entreprises" },
-  { href: "/stats", label: "Statistiques" },
+  { href: "/stats", label: "Couverture" },
   { href: "/contribute", label: "Contribuer" },
 ] as const;
 
 /**
  * Barre de navigation.
  *
- * Quatre destinations, pas une de plus : chaque entrée correspond à un écran
- * qui existe vraiment. Les liens d'administration n'apparaîtront que pour les
- * modérateurs, quand cet écran existera.
+ * Cinq destinations, pas une de plus, et chacune correspond à un écran qui
+ * existe vraiment. L'ordre suit le parcours réel : on explore (Réseau), on
+ * cherche une opportunité (Offres), on creuse une piste (Entreprises), on
+ * regarde ce qui manque (Couverture), on ajoute (Contribuer). Les liens
+ * d'administration n'apparaîtront que pour les modérateurs, quand cet écran
+ * existera.
  */
 export function SiteHeader({ member }: { member: Author | null }) {
   const pathname = usePathname();

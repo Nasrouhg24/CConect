@@ -27,8 +27,9 @@ export function CompanyLogo({
 
   if (company.logoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- hôte externe non
-      // connu à la compilation ; l'optimiseur d'images n'apporterait rien ici.
+      /* Hôte externe inconnu à la compilation : next/image n'apporterait rien
+         et exigerait une allowlist de domaines à maintenir. */
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={company.logoUrl}
         alt=""

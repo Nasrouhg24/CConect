@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { rateLimitMessage } from "@/lib/rate-limit";
+import { enforceWriteQuota } from "@/lib/rate-limit-server";
 import {
   deleteContact,
-  getCompanies,
-  getContacts,
+  getCompanyById,
+  getContact,
   getCurrentMember,
   updateContact,
 } from "@/lib/repository";
@@ -58,6 +60,11 @@ export async function editContact(
   const member = await getCurrentMember();
   if (!member) return { ok: false, message: "Session expirée." };
 
+  const limit = await enforceWriteQuota("contact", `contact:${member.id}`);
+  if (!limit.ok) {
+    return { ok: false, message: rateLimitMessage(limit.retryAfterSeconds) };
+  }
+
   if (!input.companyId) {
     return {
       ok: false,
@@ -66,8 +73,7 @@ export async function editContact(
     };
   }
 
-  const companies = await getCompanies();
-  const company = companies.find((c) => c.id === input.companyId);
+  const company = await getCompanyById(input.companyId);
   if (!company) {
     return {
       ok: false,
@@ -78,7 +84,7 @@ export async function editContact(
 
   // On mémorise l'ancienne entreprise pour rafraîchir sa page aussi : sinon
   // le contact resterait visible sur une fiche qu'il a quittée.
-  const previous = (await getContacts()).find((c) => c.id === id);
+  const previous = await getContact(id);
 
   try {
     await updateContact(
@@ -121,7 +127,7 @@ export async function removeContact(
   const member = await getCurrentMember();
   if (!member) return { ok: false, message: "Session expirée." };
 
-  const existing = (await getContacts()).find((c) => c.id === id);
+  const existing = await getContact(id);
 
   try {
     await deleteContact(id, member);

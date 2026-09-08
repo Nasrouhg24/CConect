@@ -1,17 +1,26 @@
 import Link from "next/link";
 import { ContributionForm } from "@/components/ContributionForm";
 import { PageShell } from "@/components/PageShell";
-import { getCurrentMember, getPlaces, isDemoMode } from "@/lib/repository";
+import {
+  getCompanies,
+  getCurrentMember,
+  getPlaces,
+  isDemoMode,
+} from "@/lib/repository";
 
 export const metadata = { title: "Contribuer" };
 
 export default async function ContributePage() {
-  const [places, member] = await Promise.all([getPlaces(), getCurrentMember()]);
+  const [places, member, companies] = await Promise.all([
+    getPlaces(),
+    getCurrentMember(),
+    getCompanies(),
+  ]);
 
   return (
     <PageShell
       title="Ajouter au réseau"
-      lead="Une expérience que tu as vécue, ou une personne que tu connais dans une entreprise. Les deux ont de la valeur."
+      lead="Une expérience vécue, une personne que tu connais, ou une offre ouverte. Tout se rattache à une fiche entreprise existante."
       width="narrow"
     >
       {member ? (
@@ -21,7 +30,7 @@ export default async function ContributePage() {
             <span className="text-text-muted">{member.fullName}</span>
             {isDemoMode ? " (membre de démonstration)" : ""}
           </p>
-          <ContributionForm places={places} />
+          <ContributionForm places={places} companies={companies} />
         </>
       ) : (
         <div className="rounded-md border border-border bg-surface p-8 text-center">
