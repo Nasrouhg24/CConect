@@ -147,3 +147,53 @@ Aucun rebond, aucune mise à l'échelle au survol, aucune lueur.
   typographique suffisent presque toujours.
 - Empiler une bordure, une ombre et un fond sur la même surface.
 - Introduire une icône qui n'ajoute pas d'information.
+
+## Logos d'entreprise
+
+`CompanyLogo` (`src/components/CompanyLogo.tsx`) rend :
+
+1. l'image de `logo_url` si elle est renseignée ;
+2. sinon un **monogramme** : une ou deux initiales sur une pastille teintée.
+
+Le monogramme est le cas par défaut, et c'est assumé. Aller chercher les logos
+sur un service tiers (Clearbit, favicons Google) ferait partir une requête par
+entreprise depuis le navigateur de chaque membre, vers un tiers qui apprendrait
+quelles entreprises la promo consulte. Ça obligerait aussi à ouvrir `img-src`
+dans la CSP. Le monogramme évite tout ça : aucune requête sortante, aucune
+image cassée, et la même pastille pour la même entreprise sur toutes les pages.
+
+La teinte vient d'un hachage du **nom canonique** (`monogramTint`), parmi six
+valeurs désaturées. Elle est donc stable : « Microsoft » et « Microsoft Corp. »
+donnent la même couleur. Ce n'est pas une couleur au hasard, c'est un repère
+d'identification — la seule exception à la règle « une seule couleur d'accent ».
+
+Tailles : `sm` 28 px (listes denses, sélecteur), `md` 40 px (cartes d'offre et
+de contact), `lg` 56 px (en-tête d'offre), `xl` 72 px (fiche entreprise).
+
+## Carte d'offre
+
+L'ordre de lecture est imposé par la structure : logo, puis entreprise, puis
+titre du poste. C'est l'entreprise qu'on reconnaît d'abord en parcourant une
+liste.
+
+```
+┌──────────────────────────────────────┐
+│ [LOGO]  Microsoft                    │
+│         Cybersecurity Intern         │
+│                                      │
+│ 📍 Berlin, Allemagne  ⏱ 4 mois       │
+│ 📅 18 août 2026                      │
+│                                      │
+│ ● Cybersecurity · SOC · SIEM · KQL   │
+└──────────────────────────────────────┘
+```
+
+Deux liens cohabitent dans la carte : le nom de l'entreprise mène à sa fiche,
+tout le reste mène à l'offre (via un `::before` qui couvre la carte). Le lien
+entreprise repasse au-dessus avec `relative z-10`.
+
+## Couleurs de la carte géographique
+
+`--color-map-ocean`, `--color-map-land` et `--color-map-border` vivent dans le
+même bloc `@theme` que le reste. Le fond de carte n'est pas un thème étranger
+posé au milieu de l'interface : il partage la même famille de neutres.
