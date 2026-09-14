@@ -8,10 +8,8 @@ import type { ReactNode } from "react";
  * s'affichent depuis des Server Components et n'ont aucune raison d'envoyer du
  * JavaScript au navigateur.
  *
- * Règle de rédaction, valable pour les trois : un état vide dit **pourquoi**
- * c'est vide et **quoi faire ensuite**. « Aucune donnée » ne fait ni l'un ni
- * l'autre — l'utilisateur ne sait pas s'il a mal cherché, s'il n'a pas le
- * droit, ou si personne n'a encore contribué.
+ * Règle de rédaction : un état vide dit quoi faire ensuite, en une phrase.
+ * « Aucune donnée » ne le dit pas ; un paragraphe d'explication le noie.
  */
 
 export function EmptyState({
@@ -31,14 +29,14 @@ export function EmptyState({
         compact ? "rounded-sm px-5 py-8" : "rounded-md px-6 py-12"
       }`}
     >
-      <p className="text-sm text-text">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-text-muted">
+      <p className="text-body text-text">{title}</p>
+      <p className="mx-auto mt-1.5 max-w-md text-list leading-relaxed text-text-muted">
         {body}
       </p>
       {action ? (
         <Link
           href={action.href}
-          className="mt-5 inline-block rounded-sm bg-accent px-4 py-2 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-hover"
+          className="mt-5 inline-block rounded-sm bg-accent px-4 py-2 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
         >
           {action.label}
         </Link>

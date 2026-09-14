@@ -73,7 +73,7 @@ const sql = `-- Données de départ de CConnect. Généré par scripts/generate-
 --   npm run seed:sql
 --
 -- À exécuter après les migrations. Ce fichier ne contient QUE des référentiels
--- (villes, entreprises) : les offres, expériences et contacts viennent des
+-- (villes, entreprises) : les expériences et contacts viennent des
 -- membres.
 
 insert into places (city, country_code, country_name, continent, lat, lng) values

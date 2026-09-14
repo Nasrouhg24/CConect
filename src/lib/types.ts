@@ -1,9 +1,9 @@
 /**
  * Modèle de domaine de CConnect.
  *
- * Le graphe est : Entreprise → Offres → Contacts, plus les expériences vécues
- * par les membres. Une offre ou un contact ne porte jamais un nom d'entreprise
- * en texte libre : ils référencent une `Company` par son identifiant.
+ * Le graphe est : Entreprise → Contacts, plus les expériences vécues par les
+ * membres. Un contact ne porte jamais un nom d'entreprise en texte libre : il
+ * référence une `Company` par son identifiant.
  *
  * Règle non négociable, appliquée jusque dans le schéma SQL :
  * aucun champ ne stocke l'email ou le téléphone d'un contact externe.
@@ -129,26 +129,6 @@ export interface Contact {
   /** Comment l'auteur connaît cette personne — visible par les membres. */
   notes: string | null;
   createdAt: string;
-}
-
-/** Offre de stage ou d'emploi partagée par un membre. */
-export interface JobOffer {
-  id: string;
-  company: Company;
-  place: Place;
-  postedBy: Author;
-  title: string;
-  domain: Domain;
-  kind: ExperienceKind;
-  /** Durée en mois. `null` pour un poste permanent. */
-  durationMonths: number | null;
-  description: string | null;
-  technologies: string[];
-  /** Lien vers l'annonce d'origine. */
-  url: string | null;
-  publishedAt: string;
-  /** Date au-delà de laquelle l'offre n'est plus proposée. */
-  expiresAt: string | null;
 }
 
 export type EntryKind = "experience" | "contact";

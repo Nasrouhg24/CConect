@@ -19,7 +19,6 @@ import { AUTH_COOKIE_OPTIONS } from "./lib/supabase/cookie-options";
 const PROTECTED = [
   "/network",
   "/companies",
-  "/offers",
   "/contribute",
   "/stats",
   "/profile",

@@ -54,8 +54,8 @@ export function CompanyExperiences({
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[14px] text-text">{entry.headline}</p>
-                    <p className="mt-0.5 text-[12px] text-text-faint">
+                    <p className="text-body text-text">{entry.headline}</p>
+                    <p className="mt-0.5 text-meta text-text-faint">
                       {entry.place.city}
                       {entry.experienceKind
                         ? ` · ${EXPERIENCE_KIND_LABELS[entry.experienceKind]} ${entry.year}`
@@ -66,12 +66,12 @@ export function CompanyExperiences({
                 </div>
 
                 {entry.detail ? (
-                  <p className="mt-2 text-[13px] leading-relaxed text-text-muted">
+                  <p className="mt-2 text-list leading-relaxed text-text-muted">
                     {entry.detail}
                   </p>
                 ) : null}
 
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta">
                   <span className="text-text-faint">
                     Partagé par{" "}
                     <span className="text-text-muted">{entry.author.fullName}</span> ·{" "}
@@ -242,15 +242,15 @@ function ExperienceEditor({
       </div>
 
       {Object.values(err).length > 0 ? (
-        <p className="text-[12px] text-danger">{Object.values(err)[0]}</p>
+        <p className="text-meta text-danger">{Object.values(err)[0]}</p>
       ) : null}
       {state ? (
-        <p className={`text-[12px] ${state.ok ? "text-accent" : "text-danger"}`}>
+        <p className={`text-meta ${state.ok ? "text-accent" : "text-danger"}`}>
           {state.message}
         </p>
       ) : null}
       {deleteState && !deleteState.ok ? (
-        <p className="text-[12px] text-danger">{deleteState.message}</p>
+        <p className="text-meta text-danger">{deleteState.message}</p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -263,7 +263,7 @@ function ExperienceEditor({
 
         {confirmDelete ? (
           <>
-            <span className="text-[12px] text-text-muted">Supprimer ?</span>
+            <span className="text-meta text-text-muted">Supprimer ?</span>
             <Button
               type="submit"
               variant="danger"

@@ -40,7 +40,7 @@ test("F-06 les destinations internes légitimes passent inchangées", () => {
   for (const [raw, expected] of [
     ["/network", "/network"],
     ["/companies/microsoft", "/companies/microsoft"],
-    ["/offers?domain=data", "/offers?domain=data"],
+    ["/companies?q=ocp", "/companies?q=ocp"],
     ["/..//evil.com", "//evil.com"], // reste sur l'origine : chemin, pas hôte
   ] as const) {
     assert.equal(safeRedirectPath(raw, ORIGIN), expected, `pour ${raw}`);

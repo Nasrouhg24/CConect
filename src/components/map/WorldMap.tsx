@@ -387,10 +387,10 @@ export function WorldMap({
             transform: "translate(-50%, -100%)",
           }}
         >
-          <p className="text-[13px] font-medium leading-tight text-text">
+          <p className="text-list font-medium leading-tight text-text">
             {activePoint.cluster.place.city}
           </p>
-          <p className="text-[11px] leading-tight text-text-muted">
+          <p className="text-label leading-tight text-text-muted">
             {activePoint.cluster.experienceCount} exp. ·{" "}
             {activePoint.cluster.contactCount} contact
             {activePoint.cluster.contactCount > 1 ? "s" : ""}

@@ -7,22 +7,19 @@ import { BrandLockup } from "./Brand";
 import type { Author } from "@/lib/types";
 
 const NAV = [
-  { href: "/network", label: "Réseau" },
-  { href: "/offers", label: "Offres" },
+  { href: "/network", label: "Carte" },
   { href: "/companies", label: "Entreprises" },
+  { href: "/contribute", label: "Ajouter" },
   { href: "/stats", label: "Couverture" },
-  { href: "/contribute", label: "Contribuer" },
 ] as const;
 
 /**
  * Barre de navigation.
  *
- * Cinq destinations, pas une de plus, et chacune correspond à un écran qui
- * existe vraiment. L'ordre suit le parcours réel : on explore (Réseau), on
- * cherche une opportunité (Offres), on creuse une piste (Entreprises), on
- * regarde ce qui manque (Couverture), on ajoute (Contribuer). Les liens
- * d'administration n'apparaîtront que pour les modérateurs, quand cet écran
- * existera.
+ * Quatre destinations, des mots d'une seule syllabe de lecture : « Carte »
+ * dit ce qu'on voit, là où « Réseau » nommait un concept. L'ordre suit le
+ * parcours réel : on cherche (Carte), on creuse (Entreprises), on ajoute
+ * (Ajouter), on regarde ce qui manque (Couverture).
  */
 export function SiteHeader({ member }: { member: Author | null }) {
   const pathname = usePathname();
@@ -43,7 +40,7 @@ export function SiteHeader({ member }: { member: Author | null }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-sm px-3 py-1.5 text-[13px] transition-colors ${
+                className={`rounded-sm px-3 py-1.5 text-list transition-colors ${
                   active
                     ? "bg-surface-hover text-text"
                     : "text-text-muted hover:text-text"
@@ -59,9 +56,9 @@ export function SiteHeader({ member }: { member: Author | null }) {
           {member ? (
             <Link
               href="/profile"
-              className="flex items-center gap-2 rounded-sm border border-border px-2.5 py-1.5 text-[13px] text-text-muted transition-colors hover:border-border-strong hover:text-text"
+              className="flex items-center gap-2 rounded-sm border border-border px-2.5 py-1.5 text-list text-text-muted transition-colors hover:border-border-strong hover:text-text"
             >
-              <span className="grid h-5 w-5 place-items-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent">
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-accent-soft text-micro font-semibold text-accent">
                 {member.fullName.slice(0, 1)}
               </span>
               <span className="hidden sm:inline">Profil</span>
@@ -69,7 +66,7 @@ export function SiteHeader({ member }: { member: Author | null }) {
           ) : (
             <Link
               href="/login"
-              className="rounded-sm bg-accent px-3 py-1.5 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-hover"
+              className="rounded-sm bg-accent px-3 py-1.5 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
             >
               Se connecter
             </Link>
@@ -96,7 +93,7 @@ export function SiteHeader({ member }: { member: Author | null }) {
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className="block rounded-sm px-2 py-2 text-sm text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="block rounded-sm px-2 py-2 text-body text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
             >
               {item.label}
             </Link>

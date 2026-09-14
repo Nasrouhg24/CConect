@@ -9,12 +9,8 @@ import {
   filterEntries,
   summarize,
 } from "../src/lib/entries.ts";
-import { CONTACTS, EXPERIENCES, JOB_OFFERS } from "../src/lib/data/seed.ts";
-import { isOfferExpired, splitByExpiry } from "../src/lib/offers.ts";
-import {
-  findPrivateContactDetails,
-  parseTechnologies,
-} from "../src/lib/validation.ts";
+import { CONTACTS, EXPERIENCES } from "../src/lib/data/seed.ts";
+import { findPrivateContactDetails } from "../src/lib/validation.ts";
 import { EMPTY_FILTERS } from "../src/lib/types.ts";
 
 const ENTRIES = [
@@ -92,7 +88,7 @@ test("les statistiques comptent des entités distinctes", () => {
   assert.equal(stats.companies, new Set(ENTRIES.map((e) => e.company.slug)).size);
 });
 
-test("le résumé d'entreprise agrège offres, contacts et domaines", () => {
+test("le résumé d'entreprise agrège expériences, contacts et domaines", () => {
   const microsoft = ENTRIES.filter((e) => e.company.slug === "microsoft");
   const summary = summarize(microsoft);
   assert.equal(summary.experiences + summary.contacts, microsoft.length);
@@ -133,21 +129,3 @@ test("le garde-fou refuse emails et téléphones, accepte le reste", () => {
   );
 });
 
-test("la liste de technologies est nettoyée, dédupliquée et bornée", () => {
-  assert.deepEqual(parseTechnologies("Python, python , SQL"), ["Python", "SQL"]);
-  assert.deepEqual(parseTechnologies(undefined), []);
-  assert.equal(parseTechnologies(Array.from({ length: 20 }, (_, i) => `T${i}`).join(",")).length, 12);
-});
-
-test("le partage des offres par expiration est exhaustif", () => {
-  const { open, expired } = splitByExpiry(JOB_OFFERS);
-  assert.equal(open.length + expired.length, JOB_OFFERS.length);
-  assert.ok(expired.every((o) => isOfferExpired(o)));
-  assert.ok(open.every((o) => !isOfferExpired(o)));
-});
-
-test("une offre sans date d'expiration n'expire jamais", () => {
-  const permanent = JOB_OFFERS.find((o) => o.expiresAt === null);
-  assert.ok(permanent, "le jeu de démo doit contenir une offre sans échéance");
-  assert.equal(isOfferExpired(permanent, Date.now() + 1e12), false);
-});

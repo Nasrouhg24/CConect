@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex h-full flex-col overflow-hidden font-sans">
         {isDemoMode ? (
-          <p className="shrink-0 border-b border-border bg-surface px-4 py-1 text-center text-[11px] text-text-faint">
+          <p className="shrink-0 border-b border-border bg-surface px-4 py-1 text-center text-label text-text-faint">
             Mode démo — données fictives, aucune base connectée.
           </p>
         ) : null}

@@ -26,8 +26,8 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-[13px]",
-  md: "h-9 px-4 text-sm",
+  sm: "h-8 px-3 text-list",
+  md: "h-9 px-4 text-body",
 };
 
 export function Button({
@@ -85,7 +85,7 @@ export function Chip({
   onRemove?: () => void;
 }) {
   return (
-    <span className="inline-flex h-7 items-center gap-1.5 rounded-sm border border-border bg-surface-raised pl-2.5 pr-1.5 text-[12px] text-text">
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-sm border border-border bg-surface-raised pl-2.5 pr-1.5 text-meta text-text">
       {children}
       {onRemove ? (
         <button
@@ -127,7 +127,7 @@ export function DomainDot({
         style={{ backgroundColor: DOMAIN_COLORS[domain] }}
       />
       {withLabel ? (
-        <span className="text-[12px] text-text-muted">
+        <span className="text-meta text-text-muted">
           {DOMAIN_LABELS[domain]}
         </span>
       ) : (
@@ -151,12 +151,12 @@ export function Metric({
     <div>
       <p
         className={`font-mono tabular-nums text-text ${
-          size === "sm" ? "text-lg" : "text-2xl"
+          size === "sm" ? "text-metric-sm" : "text-metric"
         }`}
       >
         {value}
       </p>
-      <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-text-faint">
+      <p className="mt-0.5 text-label uppercase tracking-[0.08em] text-text-faint">
         {label}
       </p>
     </div>
@@ -164,15 +164,15 @@ export function Metric({
 }
 
 export const inputClass =
-  "h-9 w-full rounded-sm border border-border bg-surface px-3 text-sm text-text placeholder:text-text-faint transition-colors focus:border-accent focus:outline-none";
+  "h-9 w-full rounded-sm border border-border bg-surface px-3 text-body text-text placeholder:text-text-faint transition-colors focus:border-accent focus:outline-none";
 
 export const textareaClass =
-  "w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm leading-relaxed text-text placeholder:text-text-faint transition-colors focus:border-accent focus:outline-none";
+  "w-full rounded-sm border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-faint transition-colors focus:border-accent focus:outline-none";
 
 export const selectClass = `${inputClass} appearance-none bg-[length:10px] bg-[right_0.6rem_center] bg-no-repeat pr-8`;
 
 export const labelClass =
-  "block text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint";
+  "block text-label font-medium uppercase tracking-[0.08em] text-text-faint";
 
 export const panelClass =
   "rounded-md border border-border bg-surface-raised shadow-[var(--shadow-panel)]";

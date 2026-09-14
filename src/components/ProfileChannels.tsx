@@ -40,7 +40,7 @@ export function ProfileChannels({ member }: { member: Author }) {
           empty="Non renseigné — les membres ne pourront pas t'écrire depuis Outlook"
         />
         {state?.ok ? (
-          <p className="text-[12px] text-accent">{state.message}</p>
+          <p className="text-meta text-accent">{state.message}</p>
         ) : null}
         <Button size="sm" onClick={() => setEditing(true)}>
           Modifier
@@ -60,7 +60,7 @@ export function ProfileChannels({ member }: { member: Author }) {
           placeholder="https://www.linkedin.com/in/…"
           className={`${inputClass} mt-1.5`}
         />
-        <span className="mt-1 block text-[12px] text-text-faint">
+        <span className="mt-1 block text-meta text-text-faint">
           Public. C&apos;est ce lien que verront les membres qui veulent
           t&apos;identifier.
         </span>
@@ -75,14 +75,14 @@ export function ProfileChannels({ member }: { member: Author }) {
           placeholder="prenom.nom@um6p.ma"
           className={`${inputClass} mt-1.5`}
         />
-        <span className="mt-1 block text-[12px] text-text-faint">
+        <span className="mt-1 block text-meta text-text-faint">
           Visible des seuls membres connectés. Il sert à pré-remplir le brouillon
           Outlook quand quelqu&apos;un veut te contacter.
         </span>
       </label>
 
       {state && !state.ok ? (
-        <p className="text-[12px] text-danger">{state.message}</p>
+        <p className="text-meta text-danger">{state.message}</p>
       ) : null}
 
       <div className="flex gap-2">
@@ -124,15 +124,15 @@ function Channel({
             href={href}
             target="_blank"
             rel="noopener noreferrer nofollow"
-            className="mt-1 block truncate text-[13px] text-text underline-offset-2 hover:underline"
+            className="mt-1 block truncate text-list text-text underline-offset-2 hover:underline"
           >
             {value}
           </a>
         ) : (
-          <p className="mt-1 truncate text-[13px] text-text">{value}</p>
+          <p className="mt-1 truncate text-list text-text">{value}</p>
         )
       ) : (
-        <p className="mt-1 text-[13px] text-text-faint">{empty}</p>
+        <p className="mt-1 text-list text-text-faint">{empty}</p>
       )}
     </div>
   );

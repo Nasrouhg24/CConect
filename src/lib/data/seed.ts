@@ -5,7 +5,6 @@ import type {
   Contact,
   Experience,
   Industry,
-  JobOffer,
 } from "../types";
 import { place } from "./places";
 
@@ -431,118 +430,5 @@ export const CONTACTS: Contact[] = [
     linkedinUrl: "https://www.linkedin.com/in/example-lotte",
     notes: "Mon ancienne manager. Recrute des stagiaires data chaque printemps.",
     createdAt: "2025-11-23T10:45:00Z",
-  },
-];
-
-export const JOB_OFFERS: JobOffer[] = [
-  {
-    id: "o-1", company: co("microsoft"), place: place("p-berlin"), postedBy: au("u-ahmed"),
-    title: "Cybersecurity Intern", domain: "cybersecurity", kind: "internship",
-    durationMonths: 4,
-    description:
-      "Rejoindre le SOC EMEA : triage d'alertes, écriture de règles de détection, participation aux revues post-incident.",
-    technologies: ["Cybersecurity", "SOC", "SIEM", "KQL"],
-    url: "https://careers.microsoft.com",
-    publishedAt: "2026-08-18T09:00:00Z",
-    expiresAt: "2026-12-31T00:00:00Z",
-  },
-  {
-    id: "o-2", company: co("capgemini"), place: place("p-casablanca"), postedBy: au("u-youssef"),
-    title: "Stage PFE — Ingénierie DevOps", domain: "cloud_devops", kind: "pfe",
-    durationMonths: 6,
-    description:
-      "Automatisation de déploiements pour des clients bancaires. Convention de stage PFE, encadrement par un architecte.",
-    technologies: ["GitLab CI", "Docker", "Kubernetes", "Terraform"],
-    url: null,
-    publishedAt: "2026-08-25T08:30:00Z",
-    expiresAt: null,
-  },
-  {
-    id: "o-3", company: co("ocp-group"), place: place("p-benguerir"), postedBy: au("u-imane"),
-    title: "Data Engineer Intern", domain: "data", kind: "internship",
-    durationMonths: 5,
-    description:
-      "Construction de pipelines pour la plateforme data du groupe. Poste ouvert aux profils UM6P en priorité.",
-    technologies: ["Python", "Airflow", "Spark", "Power BI"],
-    url: "https://ocpgroup.ma/carrieres",
-    publishedAt: "2026-09-01T07:00:00Z",
-    expiresAt: "2026-11-30T00:00:00Z",
-  },
-  {
-    id: "o-4", company: co("amazon-web-services"), place: place("p-dublin"), postedBy: au("u-omar"),
-    title: "Cloud Support Engineer Intern", domain: "cloud_devops", kind: "internship",
-    durationMonths: 6,
-    description:
-      "Support technique niveau 2 sur les services de calcul. Test en ligne puis deux entretiens comportementaux.",
-    technologies: ["AWS", "Linux", "Networking", "Python"],
-    url: "https://amazon.jobs",
-    publishedAt: "2026-08-12T11:00:00Z",
-    expiresAt: "2026-10-15T00:00:00Z",
-  },
-  {
-    id: "o-5", company: co("orange-cyberdefense"), place: place("p-lyon"), postedBy: au("u-hiba"),
-    title: "Analyste SOC — Alternance", domain: "cybersecurity", kind: "apprenticeship",
-    durationMonths: 12,
-    description:
-      "Alternance d'un an au sein du centre opérationnel de sécurité. Rythme trois semaines entreprise, une semaine école.",
-    technologies: ["Splunk", "MITRE ATT&CK", "Threat Intel"],
-    url: null,
-    publishedAt: "2026-07-30T14:00:00Z",
-    expiresAt: null,
-  },
-  {
-    id: "o-6", company: co("dataiku"), place: place("p-paris"), postedBy: au("u-salma"),
-    title: "Machine Learning Engineer Intern", domain: "ai_ml", kind: "pfe",
-    durationMonths: 6,
-    description:
-      "Industrialisation de modèles sur la plateforme : packaging, monitoring, tests de dérive.",
-    technologies: ["Python", "MLflow", "Kubernetes"],
-    url: "https://dataiku.com/careers",
-    publishedAt: "2026-08-05T10:00:00Z",
-    expiresAt: "2026-12-01T00:00:00Z",
-  },
-  {
-    id: "o-7", company: co("thales"), place: place("p-toulouse"), postedBy: au("u-mehdi"),
-    title: "Stage PFA — Systèmes embarqués critiques", domain: "embedded", kind: "pfa",
-    durationMonths: 3,
-    description:
-      "Développement et validation de firmware avionique. Habilitation requise, dossier à déposer tôt.",
-    technologies: ["C", "Ada", "RTOS", "DO-178C"],
-    url: null,
-    publishedAt: "2026-06-20T09:30:00Z",
-    expiresAt: "2026-09-30T00:00:00Z",
-  },
-  {
-    id: "o-8", company: co("booking-com"), place: place("p-amsterdam"), postedBy: au("u-nour"),
-    title: "Data Science Internship", domain: "data", kind: "internship",
-    durationMonths: 6,
-    description:
-      "Expérimentation et mesure d'impact sur le tunnel de réservation. Visa pris en charge.",
-    technologies: ["Python", "SQL", "A/B testing"],
-    url: "https://careers.booking.com",
-    publishedAt: "2026-08-28T13:00:00Z",
-    expiresAt: null,
-  },
-  {
-    id: "o-9", company: co("inwi"), place: place("p-rabat"), postedBy: au("u-imane"),
-    title: "Stagiaire Cœur de réseau mobile", domain: "networks", kind: "pfa",
-    durationMonths: 4,
-    description:
-      "Dimensionnement et supervision du cœur de réseau 4G/5G. Stage basé au siège de Rabat.",
-    technologies: ["5G Core", "Wireshark", "Python"],
-    url: null,
-    publishedAt: "2026-09-02T08:00:00Z",
-    expiresAt: null,
-  },
-  {
-    id: "o-10", company: co("deloitte"), place: place("p-dubai"), postedBy: au("u-ahmed"),
-    title: "Cyber Risk Analyst — Graduate Programme", domain: "cybersecurity", kind: "job",
-    durationMonths: null,
-    description:
-      "Programme jeune diplômé : audit de sécurité et conformité pour des clients du secteur financier.",
-    technologies: ["ISO 27001", "NIST", "Audit"],
-    url: "https://deloitte.com/careers",
-    publishedAt: "2026-07-10T09:00:00Z",
-    expiresAt: "2026-10-01T00:00:00Z",
   },
 ];

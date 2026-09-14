@@ -4,16 +4,29 @@ import { getCompanies, getPlaces } from "@/lib/repository";
 
 export const metadata = { title: "Nouvelle entreprise" };
 
-export default async function NewCompanyPage() {
-  const [companies, places] = await Promise.all([getCompanies(), getPlaces()]);
+/**
+ * `?name=` vient de la bibliothèque : on y tape un nom, il n'existe pas, on
+ * clique « Ajouter … ». Retaper le nom sur l'écran suivant serait demander
+ * deux fois la même chose.
+ */
+export default async function NewCompanyPage({
+  searchParams,
+}: PageProps<"/companies/new">) {
+  const [companies, places, query] = await Promise.all([
+    getCompanies(),
+    getPlaces(),
+    searchParams,
+  ]);
+
+  const prefill = typeof query.name === "string" ? query.name.slice(0, 120) : "";
 
   return (
-    <PageShell
-      title="Ajouter une entreprise"
-      lead="Une fiche par entreprise réelle. Les offres, les contacts et les expériences viendront s'y rattacher — c'est ce qui rend le réseau navigable."
-      width="narrow"
-    >
-      <CompanyForm companies={companies} places={places} />
+    <PageShell title="Ajouter une entreprise" width="narrow">
+      <CompanyForm
+        companies={companies}
+        places={places}
+        initialName={prefill}
+      />
     </PageShell>
   );
 }
