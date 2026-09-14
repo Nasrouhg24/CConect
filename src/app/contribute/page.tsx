@@ -18,28 +18,24 @@ export default async function ContributePage() {
   ]);
 
   return (
-    <PageShell
-      title="Ajouter au réseau"
-      lead="Une expérience vécue, une personne que tu connais, ou une offre ouverte. Tout se rattache à une fiche entreprise existante."
-      width="narrow"
-    >
+    <PageShell title="Ajouter" width="narrow">
       {member ? (
         <>
-          <p className="mb-6 text-[12px] text-text-faint">
-            Publié en tant que{" "}
+          <p className="mb-6 text-meta text-text-faint">
+            En tant que{" "}
             <span className="text-text-muted">{member.fullName}</span>
-            {isDemoMode ? " (membre de démonstration)" : ""}
+            {isDemoMode ? " (démo)" : ""}
           </p>
           <ContributionForm places={places} companies={companies} />
         </>
       ) : (
         <div className="rounded-md border border-border bg-surface p-8 text-center">
-          <p className="text-sm text-text-muted">
-            Connecte-toi avec ton adresse UM6P pour contribuer.
+          <p className="text-body text-text-muted">
+            Connecte-toi avec ton adresse UM6P.
           </p>
           <Link
             href="/login"
-            className="mt-4 inline-block rounded-sm bg-accent px-4 py-2 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-hover"
+            className="mt-4 inline-block rounded-sm bg-accent px-4 py-2 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
           >
             Se connecter
           </Link>

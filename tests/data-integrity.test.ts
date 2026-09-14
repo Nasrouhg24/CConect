@@ -7,7 +7,6 @@ import {
   COMPANIES,
   CONTACTS,
   EXPERIENCES,
-  JOB_OFFERS,
 } from "../src/lib/data/seed.ts";
 
 /**
@@ -46,14 +45,6 @@ test("aucune entreprise dupliquée, ni par slug ni par nom canonique", () => {
   }
 });
 
-test("toutes les offres référencent une entreprise, un lieu et un membre existants", () => {
-  for (const offer of JOB_OFFERS) {
-    assert.ok(companyIds.has(offer.company.id), `offre ${offer.id} : entreprise inconnue`);
-    assert.ok(placeIds.has(offer.place.id), `offre ${offer.id} : lieu inconnu`);
-    assert.ok(authorIds.has(offer.postedBy.id), `offre ${offer.id} : auteur inconnu`);
-  }
-});
-
 test("tous les contacts sont rattachés à une entreprise existante", () => {
   for (const contact of CONTACTS) {
     assert.ok(
@@ -77,7 +68,6 @@ test("aucun identifiant dupliqué dans les entités", () => {
   const check = (label: string, ids: string[]) => {
     assert.equal(new Set(ids).size, ids.length, `identifiants dupliqués dans ${label}`);
   };
-  check("offres", JOB_OFFERS.map((o) => o.id));
   check("contacts", CONTACTS.map((c) => c.id));
   check("expériences", EXPERIENCES.map((e) => e.id));
   check("membres", AUTHORS.map((a) => a.id));
@@ -121,7 +111,6 @@ test("les URLs stockées sont en https", () => {
   const urls = [
     ...COMPANIES.flatMap((c) => [c.website, c.linkedinUrl, c.logoUrl]),
     ...CONTACTS.map((c) => c.linkedinUrl),
-    ...JOB_OFFERS.map((o) => o.url),
     ...AUTHORS.map((a) => a.linkedinUrl),
   ].filter((u): u is string => Boolean(u));
 

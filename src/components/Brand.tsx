@@ -27,11 +27,11 @@ export function BrandLockup({ compact = false }: { compact?: boolean }) {
         <BrandMark className="h-4 w-4" />
       </span>
       <span className="flex flex-col leading-none">
-        <span className="text-[15px] font-semibold tracking-tight text-text">
+        <span className="text-lead font-semibold tracking-tight text-text">
           CConnect
         </span>
         {compact ? null : (
-          <span className="mt-0.5 text-[10px] uppercase tracking-[0.1em] text-text-faint">
+          <span className="mt-0.5 text-micro uppercase tracking-[0.1em] text-text-faint">
             College of Computing
           </span>
         )}

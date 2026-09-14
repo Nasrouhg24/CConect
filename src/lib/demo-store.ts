@@ -1,13 +1,7 @@
 import "server-only";
 
-import {
-  AUTHORS,
-  COMPANIES,
-  CONTACTS,
-  EXPERIENCES,
-  JOB_OFFERS,
-} from "./data/seed";
-import type { Author, Company, Contact, Experience, JobOffer } from "./types";
+import { AUTHORS, COMPANIES, CONTACTS, EXPERIENCES } from "./data/seed";
+import type { Author, Company, Contact, Experience } from "./types";
 
 /**
  * Stockage en mémoire du mode démo.
@@ -26,7 +20,6 @@ interface DemoStore {
   companies: Company[];
   experiences: Experience[];
   contacts: Contact[];
-  offers: JobOffer[];
 }
 
 /**
@@ -39,7 +32,7 @@ interface DemoStore {
  * version est plus sûr que compléter les champs manquants un par un, parce
  * qu'un champ *présent mais obsolète* passerait au travers.
  */
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 
 const globalForDemo = globalThis as unknown as {
   __ccDemoStore?: DemoStore;
@@ -52,7 +45,6 @@ function seed(): DemoStore {
     companies: [...COMPANIES],
     experiences: [...EXPERIENCES],
     contacts: [...CONTACTS],
-    offers: [...JOB_OFFERS],
   };
 }
 

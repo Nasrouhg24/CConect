@@ -394,22 +394,6 @@ test("F-02 un email dans le résumé d'une expérience est refusé", async () =>
   );
 });
 
-test("F-02 un email dans la description d'une offre est refusé", async () => {
-  await refused(
-    () =>
-      as(ALICE, () =>
-        db.query(
-          `insert into job_offers (company_id, place_id, posted_by_id, title,
-                                   domain, kind, description)
-           values ($1, $2, $3, 'Stage data', 'data', 'pfe',
-                   'candidature à rh@contoso.com')`,
-          [companyId, placeId, ALICE],
-        ),
-      ),
-    /no_private_details/i,
-  );
-});
-
 /* ------------------------------------------------------------------ */
 /* F-02 — quota d'écriture appliqué par la base                        */
 /* ------------------------------------------------------------------ */

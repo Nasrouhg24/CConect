@@ -91,7 +91,7 @@ export function CompanyPicker({
     return (
       <div>
         {hiddenFields}
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+        <p className="text-label font-medium uppercase tracking-[0.08em] text-text-faint">
           {label}
         </p>
         <div className="mt-1.5 flex items-center gap-3 rounded-sm border border-border bg-surface px-3 py-2">
@@ -100,10 +100,10 @@ export function CompanyPicker({
             size="sm"
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] text-text">
+            <p className="truncate text-list text-text">
               {selected?.name ?? value.newName}
             </p>
-            <p className="text-[11px] text-text-faint">
+            <p className="text-label text-text-faint">
               {selected
                 ? INDUSTRY_LABELS[selected.industry]
                 : "Nouvelle entreprise — sera créée à la publication"}
@@ -112,7 +112,7 @@ export function CompanyPicker({
           <button
             type="button"
             onClick={() => onChange({ companyId: null, newName: null })}
-            className="text-[12px] text-text-faint underline-offset-2 transition-colors hover:text-text hover:underline"
+            className="text-meta text-text-faint underline-offset-2 transition-colors hover:text-text hover:underline"
           >
             Changer
           </button>
@@ -125,7 +125,7 @@ export function CompanyPicker({
     <div ref={boxRef} className="relative">
       {hiddenFields}
       <label className="block">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+        <span className="text-label font-medium uppercase tracking-[0.08em] text-text-faint">
           {label}
         </span>
         <input
@@ -183,10 +183,10 @@ export function CompanyPicker({
               >
                 <CompanyLogo company={company} size="sm" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] text-text">
+                  <span className="block truncate text-list text-text">
                     {company.name}
                   </span>
-                  <span className="block truncate text-[11px] text-text-faint">
+                  <span className="block truncate text-label text-text-faint">
                     {INDUSTRY_LABELS[company.industry]}
                     {company.headquarters ? ` · ${company.headquarters.city}` : ""}
                   </span>
@@ -210,7 +210,7 @@ export function CompanyPicker({
                 <span className="grid h-7 w-7 place-items-center rounded-sm border border-dashed border-border-strong text-accent">
                   +
                 </span>
-                <span className="text-[13px] text-text">
+                <span className="text-list text-text">
                   Créer «&nbsp;{trimmed}&nbsp;»
                 </span>
               </button>

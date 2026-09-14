@@ -27,11 +27,11 @@ export function PageShell({
       >
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[26px] font-medium tracking-tight text-text">
+            <h1 className="text-title font-medium tracking-tight text-text">
               {title}
             </h1>
             {lead ? (
-              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-text-muted">
+              <p className="mt-1.5 max-w-2xl text-body text-text-muted">
                 {lead}
               </p>
             ) : null}
@@ -48,14 +48,14 @@ export function PageShell({
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-border">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-[12px] text-text-faint sm:px-6">
-        <p>CConnect · College of Computing Career Network — UM6P</p>
-        <p>
-          Aucune coordonnée privée de contact externe n&apos;est stockée.{" "}
-          <Link href="/#confidentialite" className="underline underline-offset-2 hover:text-text">
-            Pourquoi
-          </Link>
-        </p>
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-5 text-meta text-text-faint sm:px-6">
+        <p>CConnect · College of Computing — UM6P</p>
+        <Link
+          href="/#confidentialite"
+          className="underline underline-offset-2 hover:text-text"
+        >
+          Confidentialité
+        </Link>
       </div>
     </footer>
   );

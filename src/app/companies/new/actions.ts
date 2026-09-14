@@ -40,7 +40,7 @@ export async function createCompanyProfile(
     for (const issue of parsed.error.issues) {
       fieldErrors[String(issue.path[0] ?? "form")] ??= issue.message;
     }
-    return { ok: false, message: "Vérifie les champs du formulaire.", fieldErrors };
+    return { ok: false, message: "Vérifie les champs signalés.", fieldErrors };
   }
 
   const member = await getCurrentMember();
@@ -60,7 +60,7 @@ export async function createCompanyProfile(
       ok: true,
       merged: true,
       slug: existing.slug,
-      message: `« ${input.name} » correspond à la fiche existante ${existing.name}. Aucune fiche en double n'a été créée.`,
+      message: `${existing.name} existe déjà — sa fiche est ouverte.`,
     };
   }
 
@@ -85,7 +85,7 @@ export async function createCompanyProfile(
     return {
       ok: true,
       slug: company.slug,
-      message: `Fiche créée pour ${company.name}.`,
+      message: `${company.name} ajoutée.`,
     };
   } catch (error) {
     return {

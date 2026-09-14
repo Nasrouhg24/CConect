@@ -77,7 +77,7 @@ export function FilterMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`flex h-11 shrink-0 items-center gap-2 rounded-md border px-3 text-sm sm:px-3.5 shadow-[var(--shadow-panel)] backdrop-blur-md transition-colors ${
+        className={`flex h-11 shrink-0 items-center gap-2 rounded-md border px-3 text-body sm:px-3.5 shadow-[var(--shadow-panel)] backdrop-blur-md transition-colors ${
           open || activeCount > 0
             ? "border-accent/60 bg-accent-soft text-accent"
             : "border-border bg-surface/95 text-text-muted hover:border-border-strong hover:text-text"
@@ -93,7 +93,7 @@ export function FilterMenu({
         </svg>
         <span className="hidden sm:inline">Filtres</span>
         {activeCount > 0 ? (
-          <span className="font-mono text-[11px] tabular-nums">{activeCount}</span>
+          <span className="font-mono text-label tabular-nums">{activeCount}</span>
         ) : null}
       </button>
 
@@ -177,7 +177,7 @@ export function FilterMenu({
           </Group>
 
           <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-            <p className="text-[12px] text-text-faint">
+            <p className="text-meta text-text-faint">
               Contribution : expérience ou contact
             </p>
             <div className="flex rounded-sm border border-border">
@@ -193,7 +193,7 @@ export function FilterMenu({
                   type="button"
                   onClick={() => set("entryKind", value)}
                   aria-pressed={filters.entryKind === value}
-                  className={`px-2.5 py-1 text-[12px] transition-colors ${
+                  className={`px-2.5 py-1 text-meta transition-colors ${
                     filters.entryKind === value
                       ? "bg-accent-soft text-accent"
                       : "text-text-muted hover:text-text"
@@ -213,7 +213,7 @@ export function FilterMenu({
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-4 last:mb-0">
-      <h3 className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+      <h3 className="mb-2 text-label font-medium uppercase tracking-[0.08em] text-text-faint">
         {title}
       </h3>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{children}</div>

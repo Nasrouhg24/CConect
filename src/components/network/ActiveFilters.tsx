@@ -113,7 +113,7 @@ export function ActiveFilters({
       <button
         type="button"
         onClick={onClear}
-        className="ml-0.5 text-[12px] text-text-faint underline-offset-2 transition-colors hover:text-text hover:underline"
+        className="ml-0.5 text-meta text-text-faint underline-offset-2 transition-colors hover:text-text hover:underline"
       >
         Tout effacer
       </button>

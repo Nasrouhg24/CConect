@@ -9,7 +9,7 @@ import { logSecurityEvent } from "./security-log";
  *
  * Où la limite est réellement appliquée : **en base**, par le déclencheur
  * `enforce_write_quota` (migration 0005), sur `contacts`, `experiences`,
- * `job_offers`, `companies` et `reports`. C'est le seul endroit qui compte,
+ * `companies` et `reports`. C'est le seul endroit qui compte,
  * parce que la clé anon est publique : un membre peut écrire directement dans
  * PostgREST sans jamais passer par une Server Action. Une limite posée ici et
  * nulle part ailleurs se contourne en ouvrant les outils de développement.

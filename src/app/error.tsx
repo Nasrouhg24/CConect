@@ -33,13 +33,13 @@ export default function RouteError({
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-20">
       <div className="w-full max-w-md">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-text-faint">
+        <p className="text-label uppercase tracking-[0.12em] text-text-faint">
           Erreur
         </p>
-        <h1 className="mt-2 text-[22px] font-medium tracking-tight text-text">
+        <h1 className="mt-2 text-title-sm font-medium tracking-tight text-text">
           Cette page n&apos;a pas pu se charger
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-text-muted">
+        <p className="mt-3 text-body text-text-muted">
           Le réseau n&apos;a pas répondu, ou ta session a expiré pendant le
           chargement. Rien n&apos;a été modifié : réessayer est sans risque.
         </p>
@@ -50,14 +50,14 @@ export default function RouteError({
           </Button>
           <Link
             href="/network"
-            className="inline-flex h-9 items-center rounded-sm border border-border-strong bg-surface-raised px-4 text-sm font-medium text-text transition-colors hover:bg-surface-hover"
+            className="inline-flex h-9 items-center rounded-sm border border-border-strong bg-surface-raised px-4 text-body font-medium text-text transition-colors hover:bg-surface-hover"
           >
             Retour à la carte
           </Link>
         </div>
 
         {error.digest ? (
-          <p className="mt-8 border-t border-border pt-4 text-[12px] text-text-faint">
+          <p className="mt-8 border-t border-border pt-4 text-meta text-text-faint">
             Si ça se reproduit, communique cette référence :{" "}
             <span className="font-mono text-text-muted">{error.digest}</span>
           </p>

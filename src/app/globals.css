@@ -52,6 +52,39 @@
   --shadow-panel: 0 12px 32px -12px rgb(0 0 0 / 0.65);
   --shadow-overlay: 0 20px 48px -16px rgb(0 0 0 / 0.75);
 
+  /* Échelle typographique — un rôle par palier, jamais une taille brute.
+     Les valeurs reprennent au pixel près celles qui étaient écrites en dur :
+     nommer l'échelle ne devait rien déplacer à l'écran. L'interligne fait
+     partie du palier ; on ne le remet à la main que pour le serrer. */
+  --text-micro: 10px;
+  --text-micro--line-height: 1.4;
+  --text-label: 11px;
+  --text-label--line-height: 1.4;
+  --text-meta: 12px;
+  --text-meta--line-height: 1.45;
+  --text-list: 13px;
+  --text-list--line-height: 1.5;
+  --text-body: 14px;
+  --text-body--line-height: 1.6;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.55;
+  --text-section: 16px;
+  --text-section--line-height: 1.4;
+  --text-metric-sm: 18px;
+  --text-metric-sm--line-height: 1.2;
+  --text-title-sm: 22px;
+  --text-title-sm--line-height: 1.2;
+  --text-metric: 24px;
+  --text-metric--line-height: 1.15;
+  --text-title: 26px;
+  --text-title--line-height: 1.2;
+  --text-metric-lg: 28px;
+  --text-metric-lg--line-height: 1;
+  --text-hero: 40px;
+  --text-hero--line-height: 1.1;
+  --text-hero-lg: 46px;
+  --text-hero-lg--line-height: 1.1;
+
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }

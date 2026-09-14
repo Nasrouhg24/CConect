@@ -45,7 +45,7 @@ export function LoginForm() {
 
   if (status.kind === "sent") {
     return (
-      <p className="rounded-sm border border-accent/40 bg-accent-soft p-4 text-sm text-accent">
+      <p className="rounded-sm border border-accent/40 bg-accent-soft p-4 text-body text-accent">
         Lien envoyé à {email}. Ouvre-le depuis le même navigateur.
       </p>
     );
@@ -53,7 +53,7 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <label htmlFor="email" className="block text-xs text-text-muted">
+      <label htmlFor="email" className="block text-meta text-text-muted">
         Adresse email UM6P
         <input
           id="email"
@@ -63,18 +63,18 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={`prenom.nom@${ALLOWED_EMAIL_DOMAINS[0]}`}
-          className="mt-1 w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+          className="mt-1 w-full rounded-sm border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
         />
       </label>
 
       {status.kind === "error" ? (
-        <p className="text-xs text-danger">{status.message}</p>
+        <p className="text-meta text-danger">{status.message}</p>
       ) : null}
 
       <button
         type="submit"
         disabled={status.kind === "sending"}
-        className="w-full rounded-sm bg-accent px-4 py-2.5 text-sm font-medium text-on-accent transition hover:bg-accent-hover disabled:opacity-50"
+        className="w-full rounded-sm bg-accent px-4 py-2.5 text-body font-medium text-on-accent transition hover:bg-accent-hover disabled:opacity-50"
       >
         {status.kind === "sending" ? "Envoi…" : "Recevoir un lien de connexion"}
       </button>

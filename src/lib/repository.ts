@@ -23,7 +23,6 @@ import type {
   Entry,
   Experience,
   Industry,
-  JobOffer,
   Place,
 } from "./types";
 
@@ -41,8 +40,8 @@ import type {
  * ajoutant une lecture :
  *
  *  1. **Filtrer et compter en SQL, jamais en JavaScript.** Charger toutes les
- *     offres pour n'en afficher qu'une est correct à 50 lignes et ruineux à
- *     50 000. Les lectures ciblées (`…ByCompany`, `…ByAuthor`) et les
+ *     expériences du réseau pour n'en afficher qu'une est correct à 50 lignes
+ *     et ruineux à 50 000. Les lectures ciblées (`…ByCompany`, `…ByAuthor`) et les
  *     agrégats (`getCompanyStats`, `getNetworkStats`) existent pour ça.
  *  2. **Toute lecture est mémoïsée par requête** (`cache` de React). Deux
  *     composants de la même page peuvent donc appeler la même fonction sans
@@ -187,40 +186,17 @@ function mapContact(row: Row): Contact {
   };
 }
 
-function mapJobOffer(row: Row): JobOffer {
-  return {
-    id: String(row.id),
-    company: mapCompany(firstRelation(row.company)),
-    place: mapPlace(firstRelation(row.place)),
-    postedBy: mapAuthor(firstRelation(row.posted_by)),
-    title: String(row.title),
-    domain: row.domain as JobOffer["domain"],
-    kind: row.kind as JobOffer["kind"],
-    durationMonths: (row.duration_months as number | null) ?? null,
-    description: (row.description as string | null) ?? null,
-    technologies: Array.isArray(row.technologies)
-      ? (row.technologies as string[])
-      : [],
-    url: (row.url as string | null) ?? null,
-    publishedAt: String(row.published_at),
-    expiresAt: (row.expires_at as string | null) ?? null,
-  };
-}
-
 const COMPANY_SELECT =
   "company:companies(id,name,slug,normalized_name,website,logo_url,industry,description,linkedin_url)";
 const PLACE_SELECT =
   "place:places(id,city,country_code,country_name,continent,lat,lng)";
 const AUTHOR_SELECT =
   "author:profiles(id,full_name,campus,status,promotion,linkedin_url,contact_email)";
-const POSTER_SELECT =
-  "posted_by:profiles(id,full_name,campus,status,promotion,linkedin_url,contact_email)";
 const COMPANY_COLUMNS =
   "id,name,slug,normalized_name,website,logo_url,industry,description,linkedin_url";
 
 const EXPERIENCE_SELECT = `id,domain,kind,year,title,summary,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
 const CONTACT_SELECT = `id,domain,first_name,last_name,position,linkedin_url,notes,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
-const OFFER_SELECT = `id,title,domain,kind,duration_months,description,technologies,url,published_at,expires_at,${COMPANY_SELECT},${PLACE_SELECT},${POSTER_SELECT}`;
 
 /* ------------------------------------------------------------------ */
 /* Lecture                                                             */
@@ -376,43 +352,6 @@ export const getPlaces = cache(async (): Promise<Place[]> => {
   return rows.map(mapPlace);
 });
 
-export const getJobOffers = cache(async (): Promise<JobOffer[]> => {
-  if (isDemoMode) {
-    return [...demoStore.offers].sort(
-      (a, b) =>
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-    );
-  }
-  const supabase = await createSupabaseServerClient();
-  const rows = await fetchPaged<Row>((from, to) =>
-    supabase
-      .from("job_offers")
-      .select(OFFER_SELECT)
-      .order("published_at", { ascending: false })
-      .order("id")
-      .range(from, to),
-  );
-  return rows.map(mapJobOffer);
-});
-
-/** Une offre par son identifiant — une ligne lue, pas la table entière. */
-export const getJobOffer = cache(async (id: string): Promise<JobOffer | null> => {
-  if (isDemoMode) {
-    return demoStore.offers.find((o) => o.id === id) ?? null;
-  }
-  // Postgres rejette un uuid mal formé : on répond 404 plutôt qu'une erreur 500.
-  if (!UUID.test(id)) return null;
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("job_offers")
-    .select(OFFER_SELECT)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw dbFailure("repository", error);
-  return data ? mapJobOffer(data as Row) : null;
-});
-
 /** Contacts rattachés à une entreprise — la relation Entreprise → Contacts. */
 export const getContacts = cache(async (): Promise<Contact[]> => {
   if (isDemoMode) {
@@ -476,16 +415,15 @@ export const getEntriesByAuthor = cache(
 /** Tout ce qu'il faut pour la fiche entreprise, en une passe. */
 export interface CompanyBundle {
   company: Company;
-  offers: JobOffer[];
   contacts: Contact[];
   experiences: Entry[];
 }
 
 /**
- * Fiche entreprise : trois lectures filtrées sur `company_id`, servies par les
- * index composites de la migration 0004. La version précédente chargeait
- * offres, contacts et expériences du réseau entier pour n'en garder qu'une
- * poignée — le coût d'une fiche grandissait avec la plateforme.
+ * Fiche entreprise : deux lectures filtrées sur `company_id`, servies par les
+ * index composites de la migration 0004. La version précédente chargeait les
+ * contacts et expériences du réseau entier pour n'en garder qu'une poignée —
+ * le coût d'une fiche grandissait avec la plateforme.
  */
 export const getCompanyBundle = cache(
   async (slug: string): Promise<CompanyBundle | null> => {
@@ -495,14 +433,12 @@ export const getCompanyBundle = cache(
     if (isDemoMode) {
       // Filtrer un tableau en mémoire ne coûte rien : on réutilise les
       // accesseurs pour garder exactement le même ordre d'affichage.
-      const [offers, contacts, entries] = await Promise.all([
-        getJobOffers(),
+      const [contacts, entries] = await Promise.all([
         getContacts(),
         getEntries(),
       ]);
       return {
         company,
-        offers: offers.filter((o) => o.company.slug === slug),
         contacts: contacts.filter((c) => c.company.slug === slug),
         experiences: entries.filter(
           (e) => e.company.slug === slug && e.entryKind === "experience",
@@ -511,16 +447,7 @@ export const getCompanyBundle = cache(
     }
 
     const supabase = await createSupabaseServerClient();
-    const [offers, contacts, experiences] = await Promise.all([
-      fetchPaged<Row>((from, to) =>
-        supabase
-          .from("job_offers")
-          .select(OFFER_SELECT)
-          .eq("company_id", company.id)
-          .order("published_at", { ascending: false })
-          .order("id")
-          .range(from, to),
-      ),
+    const [contacts, experiences] = await Promise.all([
       fetchPaged<Row>((from, to) =>
         supabase
           .from("contacts")
@@ -543,7 +470,6 @@ export const getCompanyBundle = cache(
 
     return {
       company,
-      offers: offers.map(mapJobOffer),
       contacts: contacts.map(mapContact),
       experiences: experiences.map((r) => experienceToEntry(mapExperience(r))),
     };
@@ -552,7 +478,6 @@ export const getCompanyBundle = cache(
 
 /** Compteurs affichés par la liste des entreprises, agrégés en base. */
 export interface CompanyCounts {
-  offers: number;
   contacts: number;
   experiences: number;
 }
@@ -563,11 +488,10 @@ export const getCompanyStats = cache(
 
     if (isDemoMode) {
       const bump = (slug: string, key: keyof CompanyCounts) => {
-        const row = stats.get(slug) ?? { offers: 0, contacts: 0, experiences: 0 };
+        const row = stats.get(slug) ?? { contacts: 0, experiences: 0 };
         row[key] += 1;
         stats.set(slug, row);
       };
-      for (const o of demoStore.offers) bump(o.company.slug, "offers");
       for (const c of demoStore.contacts) bump(c.company.slug, "contacts");
       for (const e of demoStore.experiences) bump(e.company.slug, "experiences");
       return stats;
@@ -577,14 +501,13 @@ export const getCompanyStats = cache(
     const rows = await fetchPaged<Row>((from, to) =>
       supabase
         .from("company_stats")
-        .select("company_slug,offer_count,contact_count,experience_count")
+        .select("company_slug,contact_count,experience_count")
         .order("company_slug")
         .range(from, to),
     );
 
     for (const row of rows) {
       stats.set(String(row.company_slug), {
-        offers: Number(row.offer_count ?? 0),
         contacts: Number(row.contact_count ?? 0),
         experiences: Number(row.experience_count ?? 0),
       });
@@ -871,69 +794,6 @@ export async function deleteContact(id: string, member: Author): Promise<void> {
   }
 }
 
-export interface OfferWrite {
-  companyId: string;
-  placeId: string;
-  title: string;
-  domain: JobOffer["domain"];
-  kind: JobOffer["kind"];
-  durationMonths: number | null;
-  description: string | null;
-  technologies: string[];
-  url: string | null;
-}
-
-export async function createJobOffer(
-  input: OfferWrite,
-  author: Author,
-): Promise<JobOffer> {
-  if (isDemoMode) {
-    const company = demoCompanies().find((c) => c.id === input.companyId);
-    const place = PLACES_BY_ID.get(input.placeId);
-    if (!company) throw new Error("Entreprise inconnue");
-    if (!place) throw new Error("Ville inconnue");
-
-    const offer: JobOffer = {
-      id: `o-${crypto.randomUUID()}`,
-      company,
-      place,
-      postedBy: author,
-      title: input.title,
-      domain: input.domain,
-      kind: input.kind,
-      durationMonths: input.durationMonths,
-      description: input.description,
-      technologies: input.technologies,
-      url: input.url,
-      publishedAt: new Date().toISOString(),
-      expiresAt: null,
-    };
-    demoStore.offers.push(offer);
-    return offer;
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("job_offers")
-    .insert({
-      company_id: input.companyId,
-      place_id: input.placeId,
-      posted_by_id: author.id,
-      title: input.title,
-      domain: input.domain,
-      kind: input.kind,
-      duration_months: input.durationMonths,
-      description: input.description,
-      technologies: input.technologies,
-      url: input.url,
-    })
-    .select(OFFER_SELECT)
-    .single();
-
-  if (error) throw dbFailure("repository", error);
-  return mapJobOffer(data as Row);
-}
-
 export async function createExperience(
   input: {
     companyId: string;
@@ -979,93 +839,6 @@ export async function createExperience(
     summary: input.summary,
   });
   if (error) throw dbFailure("repository", error);
-}
-
-/**
- * Modification et suppression d'une offre.
- *
- * Même contrat que pour les contacts : seul l'auteur agit sur sa contribution.
- * Le filtre `posted_by_id` double la politique RLS — il permet de distinguer
- * « ligne absente » de « ligne interdite » et de le dire à l'utilisateur.
- */
-export async function updateJobOffer(
-  id: string,
-  input: OfferWrite,
-  member: Author,
-): Promise<void> {
-  if (isDemoMode) {
-    const offer = demoStore.offers.find((o) => o.id === id);
-    if (!offer) throw new Error("Offre introuvable");
-    if (offer.postedBy.id !== member.id) throw new Error("Offre d'un autre membre");
-
-    const company = demoCompanies().find((c) => c.id === input.companyId);
-    const place = PLACES_BY_ID.get(input.placeId);
-    if (!company) throw new Error("Entreprise inconnue");
-    if (!place) throw new Error("Ville inconnue");
-
-    Object.assign(offer, {
-      company,
-      place,
-      title: input.title,
-      domain: input.domain,
-      kind: input.kind,
-      durationMonths: input.durationMonths,
-      description: input.description,
-      technologies: input.technologies,
-      url: input.url,
-    });
-    return;
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { error, count } = await supabase
-    .from("job_offers")
-    .update(
-      {
-        company_id: input.companyId,
-        place_id: input.placeId,
-        title: input.title,
-        domain: input.domain,
-        kind: input.kind,
-        duration_months: input.durationMonths,
-        description: input.description,
-        technologies: input.technologies,
-        url: input.url,
-      },
-      { count: "exact" },
-    )
-    .eq("id", id)
-    .eq("posted_by_id", member.id);
-
-  if (error) throw dbFailure("repository", error);
-  if (count === 0) {
-    logSecurityEvent("ownership.denied", { action: "job_offers.update", member: member.id });
-    throw new Error("Offre introuvable ou non modifiable");
-  }
-}
-
-export async function deleteJobOffer(id: string, member: Author): Promise<void> {
-  if (isDemoMode) {
-    const index = demoStore.offers.findIndex(
-      (o) => o.id === id && o.postedBy.id === member.id,
-    );
-    if (index === -1) throw new Error("Offre introuvable ou non supprimable");
-    demoStore.offers.splice(index, 1);
-    return;
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { error, count } = await supabase
-    .from("job_offers")
-    .delete({ count: "exact" })
-    .eq("id", id)
-    .eq("posted_by_id", member.id);
-
-  if (error) throw dbFailure("repository", error);
-  if (count === 0) {
-    logSecurityEvent("ownership.denied", { action: "job_offers.delete", member: member.id });
-    throw new Error("Offre introuvable ou non supprimable");
-  }
 }
 
 export interface ExperienceWrite {

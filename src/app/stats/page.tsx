@@ -11,16 +11,13 @@ export const metadata = { title: "Couverture" };
 /**
  * Couverture du réseau.
  *
- * Cette page montrait six compteurs et quatre classements « les plus
- * représentés » : de quoi se féliciter, rien pour décider. Or la question
- * qu'un membre se pose n'est pas « combien sommes-nous », c'est « est-ce que
- * quelqu'un couvre ce qui m'intéresse, et sinon qu'est-ce que je peux
- * ajouter ». Ce sont les *absences* qui sont actionnables.
+ * Les *absences* d'abord, la densité ensuite : la question qu'un étudiant se
+ * pose n'est pas « combien sommes-nous » mais « est-ce que quelqu'un couvre ce
+ * qui m'intéresse ». Les classements restent en contexte, pas en sujet.
  *
- * L'écran est donc organisé en deux temps : ce qui manque d'abord, ce qui est
- * dense ensuite. Les classements restent — savoir que Casablanca concentre
- * dix contributions aide à juger si une onzième vaut le coup — mais ils ne
- * sont plus le sujet.
+ * Les titres portent l'information ; aucune section n'a de paragraphe
+ * d'explication. Un écran de chiffres qu'il faut lire n'est pas un écran de
+ * chiffres.
  */
 export default async function StatsPage() {
   const stats = await getNetworkStats();
@@ -41,14 +38,11 @@ export default async function StatsPage() {
 
   if (total === 0) {
     return (
-      <PageShell
-        title="Couverture du réseau"
-        lead="Où la promo est déjà présente, et où elle ne l'est pas encore."
-      >
+      <PageShell title="Couverture">
         <EmptyState
-          title="Le réseau est vide"
-          body="Rien à mesurer pour l'instant : la couverture se construit une contribution à la fois. La première entrée rend la carte utile pour tous les suivants."
-          action={{ href: "/contribute", label: "Ajouter la première contribution" }}
+          title="Rien à mesurer"
+          body="La première contribution rend la carte utile."
+          action={{ href: "/contribute", label: "Ajouter" }}
         />
       </PageShell>
     );
@@ -56,8 +50,8 @@ export default async function StatsPage() {
 
   return (
     <PageShell
-      title="Couverture du réseau"
-      lead="Où la promo est déjà présente, et où elle ne l'est pas encore. Les manques sont en haut : ce sont eux qui indiquent quoi ajouter."
+      title="Couverture"
+      lead="Les manques d'abord : ce sont eux qui indiquent quoi ajouter."
     >
       <div className="grid grid-cols-2 gap-6 border-y border-border py-6 md:grid-cols-6">
         <Metric value={stats.countries} label="pays" />
@@ -72,31 +66,24 @@ export default async function StatsPage() {
        * 1. Ce qui manque — la seule partie sur laquelle on peut agir.
        * ---------------------------------------------------------------- */}
       <section className="mt-12">
-        <h2 className="text-base font-medium text-text">Angles morts</h2>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-text-muted">
-          Un domaine sans aucune entrée, c&apos;est un étudiant qui cherchera
-          sans rien trouver. Si tu connais quelqu&apos;un dans un de ces
-          domaines — même sans y avoir travaillé — cette entrée vaut plus que
-          la cinquantième chez une entreprise déjà couverte.
-        </p>
+        <h2 className="text-section text-text">
+          Domaines sans personne
+        </h2>
 
         {uncovered.length === 0 ? (
-          <p className="mt-5 border-l-2 border-accent/50 pl-4 text-[13px] leading-relaxed text-text-muted">
-            Les neuf domaines ont au moins une contribution. Le prochain manque
-            se lit plus bas, dans les domaines à une ou deux entrées.
+          <p className="mt-4 border-l-2 border-accent/50 pl-4 text-list text-text-muted">
+            Les neuf domaines sont couverts.
           </p>
         ) : (
           <ul className="mt-5 grid gap-px border-y border-border sm:grid-cols-2">
             {uncovered.map(({ domain }) => (
               <li
                 key={domain}
-                className="flex items-center gap-2.5 py-3 text-[13px]"
+                className="flex items-center gap-2.5 py-3 text-list"
               >
                 <DomainDot domain={domain} />
                 <span className="flex-1 text-text">{DOMAIN_LABELS[domain]}</span>
-                <span className="text-[12px] text-text-faint">
-                  personne pour l&apos;instant
-                </span>
+                <span className="text-meta text-text-faint">personne</span>
               </li>
             ))}
           </ul>
@@ -104,9 +91,9 @@ export default async function StatsPage() {
 
         <Link
           href="/contribute"
-          className="mt-5 inline-flex h-9 items-center rounded-sm bg-accent px-4 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-hover"
+          className="mt-5 inline-flex h-9 items-center rounded-sm bg-accent px-4 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
         >
-          Ajouter une contribution
+          Ajouter
         </Link>
       </section>
 
@@ -114,17 +101,13 @@ export default async function StatsPage() {
        * 2. Ce qui est couvert — contexte pour juger, pas un palmarès.
        * ---------------------------------------------------------------- */}
       <section className="mt-14 border-t border-border pt-10">
-        <h2 className="text-base font-medium text-text">Là où le réseau est dense</h2>
-        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-text-muted">
-          Ces entreprises et ces villes sont déjà bien documentées : tu y
-          trouveras quelqu&apos;un à qui parler.
-        </p>
+        <h2 className="text-section text-text">Là où trouver quelqu&apos;un</h2>
 
-        <div className="mt-7 grid gap-10 lg:grid-cols-2">
-          <Block title="Entreprises" empty="Aucune entreprise documentée">
+        <div className="mt-6 grid gap-10 lg:grid-cols-2">
+          <Block title="Entreprises" empty="Aucune">
             <Bars rows={stats.topCompanies} />
           </Block>
-          <Block title="Villes" empty="Aucune ville documentée">
+          <Block title="Villes" empty="Aucune">
             <Bars rows={stats.topCities} />
           </Block>
         </div>
@@ -138,7 +121,7 @@ export default async function StatsPage() {
           <Block title="Tous les domaines">
             <ul className="space-y-2.5">
               {domains.map(({ domain, count }) => (
-                <li key={domain} className="flex items-center gap-2.5 text-[13px]">
+                <li key={domain} className="flex items-center gap-2.5 text-list">
                   <DomainDot domain={domain as Domain} />
                   <span
                     className={`flex-1 ${count === 0 ? "text-text-faint" : "text-text-muted"}`}
@@ -146,7 +129,7 @@ export default async function StatsPage() {
                     {DOMAIN_LABELS[domain as Domain]}
                   </span>
                   <span
-                    className={`font-mono text-[12px] tabular-nums ${
+                    className={`font-mono text-meta tabular-nums ${
                       count === 0 ? "text-text-faint/60" : "text-text-faint"
                     }`}
                   >
@@ -157,15 +140,13 @@ export default async function StatsPage() {
             </ul>
           </Block>
 
-          <Block title="Par année" empty="Pas encore assez d'historique">
+          <Block title="Par année" empty="Pas assez d'historique">
             {years.length > 0 ? (
               <>
                 <YearChart rows={years} />
                 {latest && previous ? (
-                  <p className="mt-4 text-[12px] leading-relaxed text-text-muted">
-                    {latest.count >= previous.count
-                      ? `${latest.count} contribution${latest.count > 1 ? "s" : ""} pour ${latest.year}, contre ${previous.count} en ${previous.year}.`
-                      : `${latest.count} contribution${latest.count > 1 ? "s" : ""} pour ${latest.year} — moins que les ${previous.count} de ${previous.year}. L'année en cours n'est pas terminée.`}
+                  <p className="mt-4 text-meta text-text-muted">
+                    {`${latest.count} en ${latest.year}, ${previous.count} en ${previous.year}.`}
                   </p>
                 ) : null}
               </>
@@ -193,11 +174,11 @@ function Block({
 
   return (
     <section>
-      <h3 className="mb-4 text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+      <h3 className="mb-4 text-label font-medium uppercase tracking-[0.08em] text-text-faint">
         {title}
       </h3>
       {isEmpty && empty ? (
-        <p className="text-[13px] text-text-faint">{empty}</p>
+        <p className="text-list text-text-faint">{empty}</p>
       ) : (
         children
       )}
@@ -207,7 +188,7 @@ function Block({
 
 function Bars({ rows }: { rows: { label: string; count: number }[] }) {
   if (rows.length === 0) {
-    return <p className="text-[13px] text-text-faint">Rien à afficher.</p>;
+    return <p className="text-list text-text-faint">Rien.</p>;
   }
   const max = Math.max(1, ...rows.map((r) => r.count));
 
@@ -215,9 +196,9 @@ function Bars({ rows }: { rows: { label: string; count: number }[] }) {
     <ul className="space-y-2.5">
       {rows.map((row) => (
         <li key={row.label}>
-          <div className="flex items-baseline justify-between gap-3 text-[13px]">
+          <div className="flex items-baseline justify-between gap-3 text-list">
             <span className="truncate text-text-muted">{row.label}</span>
-            <span className="font-mono text-[12px] tabular-nums text-text-faint">
+            <span className="font-mono text-meta tabular-nums text-text-faint">
               {row.count}
             </span>
           </div>
@@ -247,14 +228,14 @@ function YearChart({ rows }: { rows: { year: number; count: number }[] }) {
     <ol className="flex h-40 items-end gap-1.5" aria-label="Contributions par année">
       {rows.map((row) => (
         <li key={row.year} className="flex flex-1 flex-col items-center gap-2">
-          <span className="font-mono text-[10px] tabular-nums text-text-faint">
+          <span className="font-mono text-micro tabular-nums text-text-faint">
             {row.count}
           </span>
           <div
             className="w-full bg-accent/45"
             style={{ height: `${Math.max(2, (row.count / max) * 100)}%` }}
           />
-          <span className="font-mono text-[10px] tabular-nums text-text-faint">
+          <span className="font-mono text-micro tabular-nums text-text-faint">
             {row.year}
           </span>
           <span className="sr-only">

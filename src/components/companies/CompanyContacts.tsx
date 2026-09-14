@@ -87,23 +87,23 @@ function ContactCard({
       <div className="flex items-start gap-3">
         <CompanyLogo company={contact.company} size="md" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-medium text-text">
+          <p className="truncate text-body font-medium text-text">
             {contactDisplayName(contact.firstName, contact.lastName)}
           </p>
-          <p className="truncate text-[13px] text-text-muted">{contact.position}</p>
-          <p className="truncate text-[12px] text-text-faint">
+          <p className="truncate text-list text-text-muted">{contact.position}</p>
+          <p className="truncate text-meta text-text-faint">
             {contact.company.name} · {contact.place.city}
           </p>
         </div>
       </div>
 
       {contact.notes ? (
-        <p className="mt-3 text-[13px] leading-relaxed text-text-muted">
+        <p className="mt-3 text-list leading-relaxed text-text-muted">
           {contact.notes}
         </p>
       ) : null}
 
-      <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border pt-3 text-[12px]">
+      <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border pt-3 text-meta">
         <span className="text-text-faint">
           Ajouté par{" "}
           <span className="text-text-muted">{contact.author.fullName}</span> ·{" "}
@@ -268,16 +268,16 @@ function ContactEditor({
       </div>
 
       {err.companyId ? (
-        <p className="text-[12px] text-danger">{err.companyId}</p>
+        <p className="text-meta text-danger">{err.companyId}</p>
       ) : null}
       {editState && !editState.ok ? (
-        <p className="text-[12px] text-danger">{editState.message}</p>
+        <p className="text-meta text-danger">{editState.message}</p>
       ) : null}
       {editState?.ok ? (
-        <p className="text-[12px] text-accent">{editState.message}</p>
+        <p className="text-meta text-accent">{editState.message}</p>
       ) : null}
       {deleteState && !deleteState.ok ? (
-        <p className="text-[12px] text-danger">{deleteState.message}</p>
+        <p className="text-meta text-danger">{deleteState.message}</p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
@@ -290,7 +290,7 @@ function ContactEditor({
 
         {confirmDelete ? (
           <>
-            <span className="text-[12px] text-text-muted">Supprimer ce contact ?</span>
+            <span className="text-meta text-text-muted">Supprimer ce contact ?</span>
             <Button
               type="submit"
               variant="danger"
