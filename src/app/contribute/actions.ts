@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { rateLimitMessage } from "@/lib/rate-limit";
+import { enforceWriteQuota } from "@/lib/rate-limit-server";
 import {
   createContact,
   createExperience,
-  createJobOffer,
   findOrCreateCompany,
-  getCompanies,
+  getCompanyById,
   getCurrentMember,
 } from "@/lib/repository";
 import type { Company } from "@/lib/types";
@@ -14,8 +15,6 @@ import {
   contactInputSchema,
   experienceInputSchema,
   findPrivateContactDetails,
-  offerInputSchema,
-  parseTechnologies,
 } from "@/lib/validation";
 
 export interface ContributionResult {
@@ -38,7 +37,6 @@ function collectErrors(issues: { path: PropertyKey[]; message: string }[]) {
 function revalidateAll(companySlug?: string) {
   revalidatePath("/");
   revalidatePath("/network");
-  revalidatePath("/offers");
   revalidatePath("/companies");
   revalidatePath("/stats");
   revalidatePath("/profile");
@@ -57,8 +55,7 @@ async function resolveCompany(
   authorId: string,
 ): Promise<{ company: Company; created: boolean }> {
   if (input.companyId) {
-    const companies = await getCompanies();
-    const existing = companies.find((c) => c.id === input.companyId);
+    const existing = await getCompanyById(input.companyId);
     if (existing) return { company: existing, created: false };
   }
 
@@ -80,7 +77,7 @@ async function resolveCompany(
 }
 
 /**
- * Enregistre une expérience, un contact ou une offre.
+ * Enregistre une expérience ou un contact.
  *
  * L'auteur n'est jamais lu depuis le formulaire : il vient de la session.
  */
@@ -92,11 +89,7 @@ export async function submitContribution(
   const entryKind = String(raw.entryKind ?? "");
 
   const schema =
-    entryKind === "contact"
-      ? contactInputSchema
-      : entryKind === "offer"
-        ? offerInputSchema
-        : experienceInputSchema;
+    entryKind === "contact" ? contactInputSchema : experienceInputSchema;
 
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
@@ -110,18 +103,11 @@ export async function submitContribution(
   const input = parsed.data;
 
   // Règle de confidentialité : aucune coordonnée privée dans les champs libres.
-  const freeTextField =
-    input.entryKind === "experience"
-      ? "summary"
-      : input.entryKind === "contact"
-        ? "notes"
-        : "description";
+  const freeTextField = input.entryKind === "experience" ? "summary" : "notes";
   const freeText =
     input.entryKind === "experience"
       ? (input.summary ?? "")
-      : input.entryKind === "contact"
-        ? `${input.notes ?? ""} ${input.firstName} ${input.lastName ?? ""}`
-        : (input.description ?? "");
+      : `${input.notes ?? ""} ${input.firstName} ${input.lastName ?? ""}`;
 
   const leak = findPrivateContactDetails(freeText);
   if (leak) {
@@ -135,6 +121,11 @@ export async function submitContribution(
   const member = await getCurrentMember();
   if (!member) {
     return { ok: false, message: "Session expirée — reconnecte-toi pour publier." };
+  }
+
+  const limit = await enforceWriteQuota("contribute", `contribute:${member.id}`);
+  if (!limit.ok) {
+    return { ok: false, message: rateLimitMessage(limit.retryAfterSeconds) };
   }
 
   let company: Company;
@@ -165,7 +156,7 @@ export async function submitContribution(
         },
         member,
       );
-    } else if (input.entryKind === "contact") {
+    } else {
       await createContact(
         {
           companyId: company.id,
@@ -176,22 +167,6 @@ export async function submitContribution(
           position: input.position,
           linkedinUrl: input.linkedinUrl?.trim() || null,
           notes: input.notes?.trim() || null,
-        },
-        member,
-      );
-    } else {
-      await createJobOffer(
-        {
-          companyId: company.id,
-          placeId: input.placeId,
-          domain: input.domain,
-          kind: input.kind,
-          title: input.title,
-          durationMonths:
-            typeof input.durationMonths === "number" ? input.durationMonths : null,
-          description: input.description?.trim() || null,
-          technologies: parseTechnologies(input.technologies),
-          url: input.url?.trim() || null,
         },
         member,
       );
@@ -206,11 +181,7 @@ export async function submitContribution(
   revalidateAll(company.slug);
 
   const label =
-    input.entryKind === "experience"
-      ? "Expérience publiée"
-      : input.entryKind === "contact"
-        ? "Contact ajouté"
-        : "Offre publiée";
+    input.entryKind === "experience" ? "Expérience publiée" : "Contact ajouté";
 
   return {
     ok: true,

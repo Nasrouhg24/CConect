@@ -1,23 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAllowedEmail } from "@/lib/env";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Échange le code du lien magique contre une session.
  *
- * `next` n'est jamais utilisé tel quel : seule une redirection interne
- * (chemin commençant par « / » et sans « // ») est acceptée, sinon on
- * offrirait une redirection ouverte à toute personne capable de forger le lien.
+ * `next` n'est jamais utilisé tel quel : `safeRedirectPath` le résout et
+ * n'accepte que ce qui retombe sur notre propre origine. Voir le commentaire
+ * de ce module pour ce que le filtre par préfixe laissait passer.
  */
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/network";
-  return raw;
-}
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = safeNext(url.searchParams.get("next"));
+  const next = safeRedirectPath(url.searchParams.get("next"), url.origin);
 
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=missing_code", url.origin));

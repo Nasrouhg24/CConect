@@ -1,0 +1,21 @@
+version: 2
+
+# Les actions du pipeline sont épinglées par SHA (voir workflows/ci.yml) : sans
+# mise à jour automatique, elles resteraient figées sur une version qui finira
+# par porter une vulnérabilité connue. Dependabot fait remonter le SHA suivant
+# dans une pull request, où il est relu comme n'importe quel changement.
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    # Une PR par mise à jour de sécurité ; le reste est groupé pour ne pas
+    # noyer la revue.
+    groups:
+      dev-dependencies:
+        dependency-type: development

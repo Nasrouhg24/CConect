@@ -95,7 +95,7 @@ export function NetworkExplorer({
         <Legend label="1 contribution" tone="var(--color-node-1)" size={6} />
         <Legend label="Plusieurs" tone="var(--color-node-2)" size={9} />
         <Legend label="Pôle du réseau" tone="var(--color-node-3)" size={12} />
-        <span className="border-l border-border pl-5 text-[10px] uppercase tracking-[0.1em] text-text-faint/70">
+        <span className="border-l border-border pl-5 text-micro uppercase tracking-[0.1em] text-text-faint/70">
           Natural Earth · domaine public
         </span>
       </div>
@@ -103,14 +103,14 @@ export function NetworkExplorer({
       {filtered.length === 0 && hasActiveFilters(filters) ? (
         <div className="animate-fade pointer-events-none absolute inset-0 z-10 grid place-items-center">
           <div className="pointer-events-auto rounded-md border border-border bg-surface-raised px-5 py-4 text-center shadow-[var(--shadow-panel)]">
-            <p className="text-sm text-text">Aucun résultat sur la carte</p>
-            <p className="mt-1 text-[12px] text-text-muted">
+            <p className="text-body text-text">Aucun résultat sur la carte</p>
+            <p className="mt-1 text-meta text-text-muted">
               Élargis la recherche, ou ajoute la première contribution.
             </p>
             <button
               type="button"
               onClick={() => setFilters(EMPTY_FILTERS)}
-              className="mt-3 text-[12px] text-accent underline-offset-2 hover:underline"
+              className="mt-3 text-meta text-accent underline-offset-2 hover:underline"
             >
               Réinitialiser les filtres
             </button>
@@ -151,7 +151,7 @@ function Legend({
   size: number;
 }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-text-faint">
+    <span className="flex items-center gap-1.5 text-label text-text-faint">
       <span
         className="rounded-full"
         style={{ backgroundColor: tone, width: size, height: size }}

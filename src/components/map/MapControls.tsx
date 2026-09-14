@@ -43,7 +43,7 @@ export function MapControls({
         </svg>
       </ControlButton>
 
-      <p className="border-y border-border py-1 text-center font-mono text-[10px] tabular-nums text-text-faint">
+      <p className="border-y border-border py-1 text-center font-mono text-micro tabular-nums text-text-faint">
         {zoomLabel}
       </p>
 

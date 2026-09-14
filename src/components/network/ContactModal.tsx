@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { CAMPUS_LABELS, EXPERIENCE_KIND_LABELS, STATUS_LABELS } from "@/lib/labels";
-import type { Entry } from "@/lib/types";
+import { contactDisplayName, type Entry } from "@/lib/types";
 
 type Reason =
   | "internship"
@@ -77,7 +77,7 @@ export function ContactModal({
 
   const context =
     entry.entryKind === "contact"
-      ? `Sur CConnect, tu as ajouté un contact chez ${entry.company.name} (${entry.place.city}) : ${entry.contactName}, ${entry.headline}.`
+      ? `Sur CConnect, tu as ajouté un contact chez ${entry.company.name} (${entry.place.city}) : ${contactDisplayName(entry.contactFirstName ?? "", entry.contactLastName)}, ${entry.headline}.`
       : `Sur CConnect, tu as partagé ton expérience « ${entry.headline} » chez ${entry.company.name} (${entry.place.city}${
           entry.experienceKind
             ? `, ${EXPERIENCE_KIND_LABELS[entry.experienceKind]} ${entry.year}`
@@ -118,10 +118,10 @@ export function ContactModal({
         className="animate-sheet w-full max-w-lg overflow-hidden rounded-md border border-border bg-surface-raised shadow-[var(--shadow-overlay)]"
       >
         <header className="border-b border-border px-5 py-4">
-          <h2 id={titleId} className="text-base font-medium text-text">
+          <h2 id={titleId} className="text-section text-text">
             Contacter {firstName}
           </h2>
-          <p className="mt-0.5 text-[12px] text-text-muted">
+          <p className="mt-0.5 text-meta text-text-muted">
             {STATUS_LABELS[member.status]} {member.promotion} · Campus{" "}
             {CAMPUS_LABELS[member.campus]}
           </p>
@@ -129,14 +129,14 @@ export function ContactModal({
 
         <div className="thin-scroll max-h-[60vh] overflow-y-auto px-5 py-4">
           <fieldset>
-            <legend className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+            <legend className="text-label font-medium uppercase tracking-[0.08em] text-text-faint">
               Motif
             </legend>
             <div className="mt-2 space-y-1">
               {REASONS.map((option) => (
                 <label
                   key={option.value}
-                  className={`flex cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-2 text-[13px] transition-colors ${
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-2 text-list transition-colors ${
                     reason === option.value
                       ? "bg-accent-soft text-text"
                       : "text-text-muted hover:bg-surface-hover"
@@ -157,7 +157,7 @@ export function ContactModal({
           </fieldset>
 
           <label className="mt-4 block">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+            <span className="text-label font-medium uppercase tracking-[0.08em] text-text-faint">
               Message (optionnel)
             </span>
             <textarea
@@ -166,15 +166,15 @@ export function ContactModal({
               rows={4}
               maxLength={800}
               placeholder="Deux lignes suffisent : qui tu es, ce que tu cherches."
-              className="mt-1.5 w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
+              className="mt-1.5 w-full rounded-sm border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-faint focus:border-accent focus:outline-none"
             />
           </label>
 
           <details className="mt-3 rounded-sm border border-border bg-surface px-3 py-2">
-            <summary className="cursor-pointer text-[12px] text-text-muted">
+            <summary className="cursor-pointer text-meta text-text-muted">
               Aperçu de l&apos;email
             </summary>
-            <p className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-text-faint">
+            <p className="mt-2 whitespace-pre-wrap text-meta leading-relaxed text-text-faint">
               <span className="text-text-muted">Objet : </span>
               {chosen.subject(entry)}
               {"\n\n"}
@@ -184,7 +184,7 @@ export function ContactModal({
         </div>
 
         <footer className="flex items-center justify-between gap-3 border-t border-border px-5 py-3.5">
-          <p className="text-[11px] leading-snug text-text-faint">
+          <p className="text-label leading-snug text-text-faint">
             {entry.entryKind === "contact"
               ? "Les coordonnées privées du contact externe ne sont jamais transmises."
               : "Aucun email n'est envoyé par CConnect."}
@@ -196,7 +196,7 @@ export function ContactModal({
             {mailto ? (
               <a
                 href={mailto}
-                className="inline-flex h-8 items-center rounded-sm bg-accent px-3 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-hover"
+                className="inline-flex h-8 items-center rounded-sm bg-accent px-3 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
               >
                 Ouvrir dans Outlook
               </a>
@@ -205,7 +205,7 @@ export function ContactModal({
                 href={member.linkedinUrl}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex h-8 items-center rounded-sm bg-accent px-3 text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-hover"
+                className="inline-flex h-8 items-center rounded-sm bg-accent px-3 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
               >
                 Contacter sur LinkedIn
               </a>

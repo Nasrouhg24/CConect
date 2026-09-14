@@ -14,7 +14,7 @@ export default async function OnboardingPage() {
   return (
     <PageShell
       title="Ton profil"
-      lead="Visible uniquement par les autres membres. C'est ce nom qui apparaîtra sous tes contributions."
+      lead="Ce nom apparaîtra sous tes contributions."
       width="narrow"
     >
       <OnboardingForm />

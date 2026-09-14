@@ -7,6 +7,18 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+/**
+ * Rendu dynamique explicite.
+ *
+ * Les pages restaient hors du cache partagé parce que `getCurrentMember()`
+ * finit par lire les cookies, ce qui suffit à rendre le rendu dynamique. Cette
+ * garantie était donc transitive : un remaniement qui déplace la lecture de la
+ * session — ou un `use cache` ajouté ailleurs — aurait pu publier la page d'un
+ * membre dans le cache du CDN. On l'écrit maintenant noir sur blanc. C'est
+ * aussi ce qu'exige le nonce de la CSP, qui doit changer à chaque requête.
+ */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     default: "CConnect",
@@ -34,7 +46,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex h-full flex-col overflow-hidden font-sans">
         {isDemoMode ? (
-          <p className="shrink-0 border-b border-border bg-surface px-4 py-1 text-center text-[11px] text-text-faint">
+          <p className="shrink-0 border-b border-border bg-surface px-4 py-1 text-center text-label text-text-faint">
             Mode démo — données fictives, aucune base connectée.
           </p>
         ) : null}

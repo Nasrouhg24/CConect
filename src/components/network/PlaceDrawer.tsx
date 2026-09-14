@@ -6,7 +6,7 @@ import { summarize } from "@/lib/entries";
 import { DOMAIN_LABELS, EXPERIENCE_KIND_LABELS } from "@/lib/labels";
 import { Button, DomainDot, Metric } from "@/components/ui";
 import { ContactModal } from "./ContactModal";
-import type { Entry, Place } from "@/lib/types";
+import { contactDisplayName, type Entry, type Place } from "@/lib/types";
 
 /**
  * Panneau contextuel d'une ville.
@@ -36,10 +36,10 @@ export function PlaceDrawer({
       >
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.1em] text-text-faint">
+            <p className="text-label uppercase tracking-[0.1em] text-text-faint">
               {place.countryName}
             </p>
-            <h2 className="mt-0.5 text-xl font-medium tracking-tight text-text">
+            <h2 className="mt-0.5 text-subtitle text-text">
               {place.city}
             </h2>
           </div>
@@ -68,10 +68,10 @@ export function PlaceDrawer({
                 <li key={company.slug}>
                   <Link
                     href={`/companies/${company.slug}`}
-                    className="flex items-center justify-between rounded-sm px-2 py-1.5 -mx-2 text-[13px] text-text transition-colors hover:bg-surface-hover"
+                    className="flex items-center justify-between rounded-sm px-2 py-1.5 -mx-2 text-list text-text transition-colors hover:bg-surface-hover"
                   >
                     <span className="truncate">{company.name}</span>
-                    <span className="font-mono text-[11px] tabular-nums text-text-faint">
+                    <span className="font-mono text-label tabular-nums text-text-faint">
                       {count}
                     </span>
                   </Link>
@@ -83,10 +83,10 @@ export function PlaceDrawer({
           <Section title="Domaines">
             <ul className="space-y-1.5">
               {summary.domains.map(({ domain, count }) => (
-                <li key={domain} className="flex items-center gap-2 text-[13px]">
+                <li key={domain} className="flex items-center gap-2 text-list">
                   <DomainDot domain={domain} />
                   <span className="flex-1 text-text-muted">{DOMAIN_LABELS[domain]}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-text-faint">
+                  <span className="font-mono text-label tabular-nums text-text-faint">
                     {count}
                   </span>
                 </li>
@@ -99,10 +99,12 @@ export function PlaceDrawer({
               {(expanded ? entries : entries.slice(0, 4)).map((entry) => (
                 <li key={`${entry.entryKind}-${entry.id}`} className="border-l border-border pl-3">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-[13px] text-text">
+                    <p className="text-list text-text">
                       {entry.entryKind === "contact" ? (
                         <>
-                          <span className="font-medium">{entry.contactName}</span>
+                          <span className="font-medium">
+                            {contactDisplayName(entry.contactFirstName ?? "", entry.contactLastName)}
+                          </span>
                           <span className="text-text-muted"> · {entry.headline}</span>
                         </>
                       ) : (
@@ -111,20 +113,20 @@ export function PlaceDrawer({
                     </p>
                     <DomainDot domain={entry.domain} />
                   </div>
-                  <p className="mt-0.5 text-[12px] text-text-faint">
+                  <p className="mt-0.5 text-meta text-text-faint">
                     {entry.company.name}
                     {entry.experienceKind
                       ? ` · ${EXPERIENCE_KIND_LABELS[entry.experienceKind]} ${entry.year}`
                       : " · contact"}
                   </p>
                   <div className="mt-1.5 flex items-center gap-3">
-                    <span className="text-[12px] text-text-muted">
+                    <span className="text-meta text-text-muted">
                       {entry.author.fullName}
                     </span>
                     <button
                       type="button"
                       onClick={() => setContactTarget(entry)}
-                      className="text-[12px] text-accent underline-offset-2 transition-colors hover:underline"
+                      className="text-meta text-accent underline-offset-2 transition-colors hover:underline"
                     >
                       Contacter
                     </button>
@@ -133,7 +135,7 @@ export function PlaceDrawer({
                         href={entry.contactLinkedinUrl}
                         target="_blank"
                         rel="noopener noreferrer nofollow"
-                        className="text-[12px] text-text-faint underline-offset-2 transition-colors hover:text-text hover:underline"
+                        className="text-meta text-text-faint underline-offset-2 transition-colors hover:text-text hover:underline"
                       >
                         LinkedIn
                       </a>
@@ -146,7 +148,7 @@ export function PlaceDrawer({
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="mt-3 text-[12px] text-text-muted underline-offset-2 transition-colors hover:text-text hover:underline"
+                className="mt-3 text-meta text-text-muted underline-offset-2 transition-colors hover:text-text hover:underline"
               >
                 {expanded
                   ? "Réduire"
@@ -180,7 +182,7 @@ export function PlaceDrawer({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-b border-border px-5 py-4 last:border-b-0">
-      <h3 className="mb-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-text-faint">
+      <h3 className="mb-2.5 text-label font-medium uppercase tracking-[0.08em] text-text-faint">
         {title}
       </h3>
       {children}

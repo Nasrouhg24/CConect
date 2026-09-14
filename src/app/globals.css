@@ -31,6 +31,12 @@
   --color-warning: #cf9445;
   --color-danger: #c65f4d;
 
+  /* Carte — mêmes familles que l'interface, pour que le fond de carte ne
+     paraisse pas collé sur un thème étranger. */
+  --color-map-ocean: #080d13;
+  --color-map-land: #19222d;
+  --color-map-border: #2a3644;
+
   /* Densité des marqueurs : un seul dégradé, pas une palette */
   --color-node-1: #64768a;
   --color-node-2: #3c7c78;
@@ -46,6 +52,39 @@
   --shadow-panel: 0 12px 32px -12px rgb(0 0 0 / 0.65);
   --shadow-overlay: 0 20px 48px -16px rgb(0 0 0 / 0.75);
 
+  /* Échelle typographique — un rôle par palier, jamais une taille brute.
+     Les valeurs reprennent au pixel près celles qui étaient écrites en dur :
+     nommer l'échelle ne devait rien déplacer à l'écran. L'interligne fait
+     partie du palier ; on ne le remet à la main que pour le serrer. */
+  --text-micro: 10px;
+  --text-micro--line-height: 1.4;
+  --text-label: 11px;
+  --text-label--line-height: 1.4;
+  --text-meta: 12px;
+  --text-meta--line-height: 1.45;
+  --text-list: 13px;
+  --text-list--line-height: 1.5;
+  --text-body: 14px;
+  --text-body--line-height: 1.6;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.55;
+  --text-section: 16px;
+  --text-section--line-height: 1.4;
+  --text-metric-sm: 18px;
+  --text-metric-sm--line-height: 1.2;
+  --text-title-sm: 22px;
+  --text-title-sm--line-height: 1.2;
+  --text-metric: 24px;
+  --text-metric--line-height: 1.15;
+  --text-title: 26px;
+  --text-title--line-height: 1.2;
+  --text-metric-lg: 28px;
+  --text-metric-lg--line-height: 1;
+  --text-hero: 40px;
+  --text-hero--line-height: 1.1;
+  --text-hero-lg: 46px;
+  --text-hero-lg--line-height: 1.1;
+
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -55,7 +94,16 @@
 }
 
 body {
-  background: var(--color-base);
+  /* Un seul éclairage, très bas en contraste : le haut de page respire sans
+     que ça devienne un dégradé décoratif. */
+  background:
+    radial-gradient(
+      120rem 40rem at 50% -18rem,
+      color-mix(in oklab, var(--color-surface-raised) 55%, transparent),
+      transparent 70%
+    ),
+    var(--color-base);
+  background-attachment: fixed;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
@@ -102,6 +150,18 @@ body {
   }
 }
 
+/* Attente : une respiration, pas un clignotement. Assez lente pour qu'on la
+   lise comme « ça arrive » et pas comme « ça a planté ». */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -123,11 +183,21 @@ body {
   animation: fade-in 140ms ease-out;
 }
 
+.animate-pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-panel,
   .animate-sheet,
   .animate-fade {
     animation: none;
+  }
+  /* Le squelette garde son opacité de repos : il reste lisible comme forme,
+     sans pulsation. */
+  .animate-pulse-soft {
+    animation: none;
+    opacity: 0.5;
   }
   * {
     transition-duration: 1ms !important;

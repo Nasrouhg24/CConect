@@ -266,10 +266,10 @@ export function WorldMap({
               : undefined,
           }}
         >
-          <path d={spherePath} fill="#090e15" />
+          <path d={spherePath} fill="var(--color-map-ocean)" />
           <g
-            fill="#1a242f"
-            stroke="#2b3846"
+            fill="var(--color-map-land)"
+            stroke="var(--color-map-border)"
             strokeWidth={0.6}
             vectorEffect="non-scaling-stroke"
           >
@@ -387,10 +387,10 @@ export function WorldMap({
             transform: "translate(-50%, -100%)",
           }}
         >
-          <p className="text-[13px] font-medium leading-tight text-text">
+          <p className="text-list font-medium leading-tight text-text">
             {activePoint.cluster.place.city}
           </p>
-          <p className="text-[11px] leading-tight text-text-muted">
+          <p className="text-label leading-tight text-text-muted">
             {activePoint.cluster.experienceCount} exp. ·{" "}
             {activePoint.cluster.contactCount} contact
             {activePoint.cluster.contactCount > 1 ? "s" : ""}

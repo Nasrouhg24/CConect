@@ -97,7 +97,7 @@ export function NetworkSearch({
             }
           }}
           placeholder="Rechercher une entreprise, une ville, un domaine, un membre…"
-          className="h-full flex-1 bg-transparent text-sm text-text placeholder:text-text-faint focus:outline-none"
+          className="h-full flex-1 bg-transparent text-body text-text placeholder:text-text-faint focus:outline-none"
           aria-label="Rechercher dans le réseau"
         />
 
@@ -117,7 +117,7 @@ export function NetworkSearch({
           </button>
         ) : null}
 
-        <span className="hidden shrink-0 border-l border-border pl-3 font-mono text-[11px] tabular-nums text-text-faint sm:block">
+        <span className="hidden shrink-0 border-l border-border pl-3 font-mono text-label tabular-nums text-text-faint sm:block">
           {resultCount}
         </span>
       </div>
@@ -150,11 +150,11 @@ export function NetworkSearch({
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="flex-1 truncate text-[13px] text-text">
+                <span className="flex-1 truncate text-list text-text">
                   {suggestion.label}
                 </span>
-                <span className="text-[11px] text-text-faint">{suggestion.hint}</span>
-                <span className="font-mono text-[11px] tabular-nums text-text-faint">
+                <span className="text-label text-text-faint">{suggestion.hint}</span>
+                <span className="font-mono text-label tabular-nums text-text-faint">
                   {suggestion.count}
                 </span>
               </button>

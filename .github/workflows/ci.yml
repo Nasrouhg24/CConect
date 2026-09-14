@@ -5,16 +5,49 @@ on:
     branches: [main]
   pull_request:
 
+# Sans ce bloc, `GITHUB_TOKEN` hérite des droits par défaut du dépôt, qui
+# peuvent inclure l'écriture. Ce pipeline ne fait que lire le code.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Actions épinglées par SHA : un tag comme `v4` est mutable, et le jour
+      # où le compte qui le publie est compromis, il s'exécute ici avec accès
+      # au code et au jeton.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+
+      # `npm test` rejoue aussi les migrations SQL dans un Postgres jetable
+      # (PGlite) et vérifie les politiques RLS : voir tests/database-security.test.ts.
+      - run: npm test
       - run: npm run build
+
+      - name: Dépendances vulnérables
+        run: npm audit --audit-level=high
+
+      - name: Analyse statique de sécurité
+        run: |
+          pip install --quiet semgrep
+          semgrep \
+            --config=p/owasp-top-ten \
+            --config=p/javascript \
+            --config=p/typescript \
+            --config=p/react \
+            --config=p/nextjs \
+            --config=p/secrets \
+            --config=p/command-injection \
+            --metrics=off \
+            --error \
+            --exclude=node_modules \
+            --exclude=.next \
+            src supabase scripts tests next.config.ts

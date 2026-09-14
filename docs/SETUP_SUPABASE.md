@@ -14,7 +14,19 @@ sur les données, l'authentification ou la RLS.
 Dans le **SQL Editor** de Supabase, exécuter dans l'ordre :
 
 1. `supabase/migrations/0001_init.sql` — types, tables, triggers, RLS
-2. `supabase/seed.sql` — villes et entreprises de départ
+2. `supabase/migrations/0002_member_contact.sql` — coordonnées du membre
+3. `supabase/migrations/0003_companies_offers_contacts.sql` — entreprises, offres, contacts structurés
+4. `supabase/migrations/0004_scale.sql` — index, RLS en InitPlan, agrégats, quota d'écriture
+5. `supabase/migrations/0005_hardening.sql` — corrections de l'audit de sécurité
+6. `supabase/seed.sql` — villes et entreprises de départ
+
+Les cinq migrations sont à appliquer **dans l'ordre** : chacune suppose la
+précédente. `0004` et `0005` sont rejouables sans dommage (tout y est
+`if not exists` ou `or replace`).
+
+`npm test` rejoue ces migrations dans un Postgres jetable et attaque le
+résultat (`tests/database-security.test.ts`) : si l'une d'elles ne s'applique
+plus sur une base vierge, la CI le dit.
 
 Avec la CLI Supabase, l'équivalent est :
 
@@ -34,8 +46,34 @@ psql "$DATABASE_URL" -f supabase/seed.sql
 - **Redirect URLs** : ajouter `http://localhost:3000/auth/callback` et
   `https://<domaine-de-prod>/auth/callback`.
 
-Restreindre les inscriptions au domaine UM6P est déjà assuré côté base par le
-trigger `enforce_allowed_email_domain`. Pour autoriser un autre domaine :
+### Restreindre les inscriptions au domaine UM6P — **étape obligatoire**
+
+Le trigger `enforce_allowed_email_domain` empêche la création d'un *profil*
+hors périmètre, mais il intervient trop tard : n'importe qui sur Internet
+pouvait déclencher l'envoi d'un lien de connexion vers n'importe quelle
+adresse, avec deux conséquences — du courrier parti au nom de l'école, et
+surtout l'épuisement du quota horaire d'emails d'authentification, qui bloque
+la connexion de **tous** les membres.
+
+La migration `0005` fournit la fonction `public.restrict_signup_domain`.
+**Elle ne fait rien tant qu'elle n'est pas branchée** :
+
+1. *Authentication → Hooks* → **Before User Created** ;
+2. choisir *Postgres function* et sélectionner `public.restrict_signup_domain` ;
+3. enregistrer, puis vérifier immédiatement :
+   - une adresse `@um6p.ma` reçoit bien son lien ;
+   - une adresse extérieure est refusée, et aucune ligne n'apparaît dans
+     `auth.users`.
+
+> La forme exacte de la charge utile du hook a changé selon les versions de
+> Supabase. La fonction lit l'adresse sous `user.email`, `claims.email` ou
+> `email`, dans cet ordre. Si le test ci-dessus refuse une adresse légitime,
+> c'est cette lecture qu'il faut ajuster — pas la peine de chercher ailleurs.
+
+Configurer aussi un **SMTP personnalisé** (*Project Settings → Auth → SMTP*) :
+le quota du serveur intégré est bas, et il est partagé par tout le projet.
+
+Pour autoriser un autre domaine :
 
 ```sql
 insert into allowed_email_domains (domain, note) values ('exemple.ma', 'Partenaire');

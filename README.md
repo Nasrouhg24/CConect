@@ -39,6 +39,8 @@ Pour brancher la vraie base : voir [docs/SETUP_SUPABASE.md](docs/SETUP_SUPABASE.
 | 🎛️ **Critères croisés** | Continent, pays, ville, entreprise, domaine, campus, student/alumni, année, type de stage (PFA, PFE, stage, alternance, emploi, recherche). |
 | 💼 **Expériences** | Ce que quelqu'un a réellement vécu : poste, année, process de recrutement, conseils. |
 | 🤝 **Contacts** | Une personne connue dans une entreprise — **sans avoir eu à y travailler**. « Je n'ai jamais bossé chez Google, mais je connais un SWE à Berlin » vaut une entrée. |
+| 💼 **Offres** | Annonces rattachées à une fiche entreprise : logo, lieu, durée, technologies, date de publication et d’expiration. |
+| 🏢 **Entreprises** | Entités à part entière — secteur, site, LinkedIn, siège, description — avec leurs offres, leurs contacts et les expériences vécues. |
 | 📊 **Statistiques** | Pays, villes, entreprises, domaines, évolution par année. |
 
 ## La règle de confidentialité, appliquée dans le schéma
@@ -71,7 +73,9 @@ Détail complet : [docs/SECURITY.md](docs/SECURITY.md).
 src/
   app/                Routes (App Router)
     network/          Carte plein écran (écran principal)
-    companies/        Liste des entreprises et fiche détaillée
+    offers/           Liste des offres et fiche détaillée
+    companies/        Liste, fiche détaillée et création d’entreprise
+    contacts/         Server Actions de modification et suppression
     profile/          Profil membre : LinkedIn et email de contact
     contribute/       Formulaire + Server Action d'écriture
     stats/            Statistiques du réseau
@@ -92,6 +96,7 @@ src/
 supabase/
   migrations/         Schéma SQL, RLS, triggers
   seed.sql            Données de départ (villes, entreprises)
+tests/                Tests unitaires et d’intégrité (node --test)
 docs/                 Architecture, design system, sécurité, setup, roadmap
 ```
 

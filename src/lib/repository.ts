@@ -1,9 +1,17 @@
 import "server-only";
 
-import { COMPANIES, CONTACTS, EXPERIENCES, JOB_OFFERS } from "./data/seed";
+import { cache } from "react";
 import { PLACES, PLACES_BY_ID } from "./data/places";
 import { companySlug, normalizeCompanyName } from "./company-name";
-import { contactToEntry, experienceToEntry } from "./entries";
+import {
+  computeStats,
+  contactToEntry,
+  experienceToEntry,
+  type NetworkStats,
+} from "./entries";
+import { DOMAIN_LABELS } from "./labels";
+import { describeDbError, reportDbError } from "./db-error";
+import { logSecurityEvent } from "./security-log";
 import { isSupabaseConfigured } from "./env";
 import { createSupabaseServerClient } from "./supabase/server";
 import { demoStore } from "./demo-store";
@@ -11,10 +19,10 @@ import type {
   Author,
   Company,
   Contact,
+  Domain,
   Entry,
   Experience,
   Industry,
-  JobOffer,
   Place,
 } from "./types";
 
@@ -27,9 +35,72 @@ import type {
  *
  * Les composants n'importent jamais Supabase directement — cela garde la
  * possibilité de changer de base sans toucher à l'interface.
+ *
+ * Deux règles tiennent la montée en charge, et il faut les respecter en
+ * ajoutant une lecture :
+ *
+ *  1. **Filtrer et compter en SQL, jamais en JavaScript.** Charger toutes les
+ *     expériences du réseau pour n'en afficher qu'une est correct à 50 lignes
+ *     et ruineux à 50 000. Les lectures ciblées (`…ByCompany`, `…ByAuthor`) et les
+ *     agrégats (`getCompanyStats`, `getNetworkStats`) existent pour ça.
+ *  2. **Toute lecture est mémoïsée par requête** (`cache` de React). Deux
+ *     composants de la même page peuvent donc appeler la même fonction sans
+ *     déclencher deux allers-retours. La portée est la requête : rien n'est
+ *     partagé entre deux membres, ce qui serait une fuite avec la RLS.
  */
 
 export const isDemoMode = !isSupabaseConfigured;
+
+/**
+ * PostgREST plafonne une réponse (1 000 lignes par défaut sur Supabase) et
+ * tronque **en silence** au-delà. Une liste non paginée ne renvoie donc pas
+ * une erreur quand le réseau grandit : elle renvoie une carte incomplète.
+ * Les lectures de collection passent toutes par `fetchPaged`.
+ */
+const PAGE_SIZE = 1000;
+
+/**
+ * Garde-fou : au-delà, on refuse de charger plutôt que de faire tomber
+ * l'instance en mémoire. C'est le seuil à partir duquel la carte doit passer
+ * à un agrégat côté base — voir docs/ARCHITECTURE.md.
+ */
+const MAX_ROWS = 50_000;
+
+interface PageResult<T> {
+  data: T[] | null;
+  error: { message: string; code?: string; details?: string } | null;
+}
+
+async function fetchPaged<T>(
+  page: (from: number, to: number) => PromiseLike<PageResult<T>>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) throw dbFailure("fetchPaged", error);
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) return rows;
+  }
+  throw new Error(
+    `Plus de ${MAX_ROWS} lignes à charger : cette lecture doit être filtrée ou agrégée côté base.`,
+  );
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Erreur d'écriture ou de lecture remontée à l'appelant.
+ *
+ * Le message rendu à l'utilisateur est traduit (`describeDbError`) : le texte
+ * brut de Postgres nomme contraintes et colonnes, ce qui renseigne un
+ * attaquant sans aider un membre. Le détail part dans les journaux serveur.
+ */
+function dbFailure(context: string, error: unknown): Error {
+  reportDbError(context, error);
+  return new Error(describeDbError(error));
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Mapping des lignes Supabase vers le modèle de domaine               */
@@ -115,189 +186,372 @@ function mapContact(row: Row): Contact {
   };
 }
 
-function mapJobOffer(row: Row): JobOffer {
-  return {
-    id: String(row.id),
-    company: mapCompany(firstRelation(row.company)),
-    place: mapPlace(firstRelation(row.place)),
-    postedBy: mapAuthor(firstRelation(row.posted_by)),
-    title: String(row.title),
-    domain: row.domain as JobOffer["domain"],
-    kind: row.kind as JobOffer["kind"],
-    durationMonths: (row.duration_months as number | null) ?? null,
-    description: (row.description as string | null) ?? null,
-    technologies: Array.isArray(row.technologies)
-      ? (row.technologies as string[])
-      : [],
-    url: (row.url as string | null) ?? null,
-    publishedAt: String(row.published_at),
-    expiresAt: (row.expires_at as string | null) ?? null,
-  };
-}
-
 const COMPANY_SELECT =
   "company:companies(id,name,slug,normalized_name,website,logo_url,industry,description,linkedin_url)";
 const PLACE_SELECT =
   "place:places(id,city,country_code,country_name,continent,lat,lng)";
 const AUTHOR_SELECT =
   "author:profiles(id,full_name,campus,status,promotion,linkedin_url,contact_email)";
-const POSTER_SELECT =
-  "posted_by:profiles(id,full_name,campus,status,promotion,linkedin_url,contact_email)";
 const COMPANY_COLUMNS =
   "id,name,slug,normalized_name,website,logo_url,industry,description,linkedin_url";
+
+const EXPERIENCE_SELECT = `id,domain,kind,year,title,summary,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
+const CONTACT_SELECT = `id,domain,first_name,last_name,position,linkedin_url,notes,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
 
 /* ------------------------------------------------------------------ */
 /* Lecture                                                             */
 /* ------------------------------------------------------------------ */
 
 function demoCompanies(): Company[] {
-  return [...COMPANIES, ...demoStore.companies];
+  return demoStore.companies;
 }
 
-export async function getEntries(): Promise<Entry[]> {
+/**
+ * Toutes les contributions, pour la carte.
+ *
+ * C'est la seule lecture volontairement non filtrée : la carte projette le
+ * réseau entier et la recherche est instantanée parce qu'elle travaille sur
+ * un jeu déjà chargé. C'est aussi le plafond connu de l'architecture — voir
+ * « Passage à l'échelle » dans docs/ARCHITECTURE.md. Toute autre page doit
+ * passer par une lecture ciblée ou un agrégat.
+ */
+export const getEntries = cache(async (): Promise<Entry[]> => {
   if (isDemoMode) {
     return [
-      ...[...EXPERIENCES, ...demoStore.experiences].map(experienceToEntry),
-      ...[...CONTACTS, ...demoStore.contacts].map(contactToEntry),
+      ...demoStore.experiences.map(experienceToEntry),
+      ...demoStore.contacts.map(contactToEntry),
     ].sort((a, b) => b.year - a.year);
   }
 
   const supabase = await createSupabaseServerClient();
   const [experiences, contacts] = await Promise.all([
-    supabase
-      .from("experiences")
-      .select(
-        `id,domain,kind,year,title,summary,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`,
-      )
-      .order("year", { ascending: false }),
-    supabase
-      .from("contacts")
-      .select(
-        `id,domain,first_name,last_name,position,linkedin_url,notes,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`,
-      )
-      .order("created_at", { ascending: false }),
+    fetchPaged<Row>((from, to) =>
+      supabase
+        .from("experiences")
+        .select(EXPERIENCE_SELECT)
+        .order("year", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    fetchPaged<Row>((from, to) =>
+      supabase
+        .from("contacts")
+        .select(CONTACT_SELECT)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
-  if (experiences.error) throw new Error(experiences.error.message);
-  if (contacts.error) throw new Error(contacts.error.message);
-
   return [
-    ...(experiences.data ?? []).map((r) => experienceToEntry(mapExperience(r as Row))),
-    ...(contacts.data ?? []).map((r) => contactToEntry(mapContact(r as Row))),
+    ...experiences.map((r) => experienceToEntry(mapExperience(r))),
+    ...contacts.map((r) => contactToEntry(mapContact(r))),
   ].sort((a, b) => b.year - a.year);
-}
+});
 
-export async function getCompanies(): Promise<Company[]> {
+export const getCompanies = cache(async (): Promise<Company[]> => {
   if (isDemoMode) {
-    return demoCompanies().sort((a, b) => a.name.localeCompare(b.name));
+    // Copie : trier en place modifierait le store à la lecture.
+    return [...demoCompanies()].sort((a, b) => a.name.localeCompare(b.name));
   }
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("companies")
-    .select(COMPANY_COLUMNS)
-    .order("name");
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapCompany(r as Row));
-}
+  const rows = await fetchPaged<Row>((from, to) =>
+    supabase
+      .from("companies")
+      .select(COMPANY_COLUMNS)
+      .order("name")
+      .order("id")
+      .range(from, to),
+  );
+  return rows.map(mapCompany);
+});
 
-export async function getCompanyBySlug(slug: string): Promise<Company | null> {
-  if (isDemoMode) {
-    return demoCompanies().find((c) => c.slug === slug) ?? null;
-  }
+export const getCompanyBySlug = cache(
+  async (slug: string): Promise<Company | null> => {
+    if (isDemoMode) {
+      return demoCompanies().find((c) => c.slug === slug) ?? null;
+    }
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("companies")
+      .select(COMPANY_COLUMNS)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error) throw dbFailure("repository", error);
+    return data ? mapCompany(data as Row) : null;
+  },
+);
+
+/**
+ * Résolution d'une entreprise par son identifiant.
+ *
+ * Les Server Actions vérifient que l'entreprise visée existe avant d'écrire.
+ * Charger l'annuaire complet pour une seule vérification est le genre de
+ * détail qui ne se voit qu'une fois la plateforme remplie.
+ */
+export const getCompanyById = cache(
+  async (id: string): Promise<Company | null> => {
+    if (isDemoMode) return demoCompanies().find((c) => c.id === id) ?? null;
+    if (!UUID.test(id)) return null;
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("companies")
+      .select(COMPANY_COLUMNS)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw dbFailure("repository", error);
+    return data ? mapCompany(data as Row) : null;
+  },
+);
+
+/** Rapprochement anti-doublons : la même clé que l'index unique en base. */
+export const getCompanyByNormalizedName = cache(
+  async (normalized: string): Promise<Company | null> => {
+    if (isDemoMode) {
+      return demoCompanies().find((c) => c.normalizedName === normalized) ?? null;
+    }
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("companies")
+      .select(COMPANY_COLUMNS)
+      .eq("normalized_name", normalized)
+      .maybeSingle();
+    if (error) throw dbFailure("repository", error);
+    return data ? mapCompany(data as Row) : null;
+  },
+);
+
+export const getContact = cache(async (id: string): Promise<Contact | null> => {
+  if (isDemoMode) return demoStore.contacts.find((c) => c.id === id) ?? null;
+  if (!UUID.test(id)) return null;
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
-    .from("companies")
-    .select(COMPANY_COLUMNS)
-    .eq("slug", slug)
+    .from("contacts")
+    .select(CONTACT_SELECT)
+    .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? mapCompany(data as Row) : null;
-}
+  if (error) throw dbFailure("repository", error);
+  return data ? mapContact(data as Row) : null;
+});
 
-export async function getPlaces(): Promise<Place[]> {
+export const getPlaces = cache(async (): Promise<Place[]> => {
   if (isDemoMode) {
     return [...PLACES].sort((a, b) => a.city.localeCompare(b.city));
   }
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("places")
-    .select("id,city,country_code,country_name,continent,lat,lng")
-    .order("city");
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapPlace(r as Row));
-}
-
-export async function getJobOffers(): Promise<JobOffer[]> {
-  if (isDemoMode) {
-    return [...JOB_OFFERS, ...demoStore.offers].sort(
-      (a, b) =>
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
-    );
-  }
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("job_offers")
-    .select(
-      `id,title,domain,kind,duration_months,description,technologies,url,published_at,expires_at,${COMPANY_SELECT},${PLACE_SELECT},${POSTER_SELECT}`,
-    )
-    .order("published_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapJobOffer(r as Row));
-}
-
-export async function getJobOffer(id: string): Promise<JobOffer | null> {
-  const offers = await getJobOffers();
-  return offers.find((o) => o.id === id) ?? null;
-}
+  const rows = await fetchPaged<Row>((from, to) =>
+    supabase
+      .from("places")
+      .select("id,city,country_code,country_name,continent,lat,lng")
+      .order("city")
+      .order("id")
+      .range(from, to),
+  );
+  return rows.map(mapPlace);
+});
 
 /** Contacts rattachés à une entreprise — la relation Entreprise → Contacts. */
-export async function getContacts(): Promise<Contact[]> {
+export const getContacts = cache(async (): Promise<Contact[]> => {
   if (isDemoMode) {
-    return [...CONTACTS, ...demoStore.contacts];
+    return [...demoStore.contacts];
   }
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("contacts")
-    .select(
-      `id,domain,first_name,last_name,position,linkedin_url,notes,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`,
-    )
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapContact(r as Row));
-}
+  const rows = await fetchPaged<Row>((from, to) =>
+    supabase
+      .from("contacts")
+      .select(CONTACT_SELECT)
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
+  return rows.map(mapContact);
+});
+
+/** Contributions d'un membre — pour la page profil. */
+export const getEntriesByAuthor = cache(
+  async (authorId: string): Promise<Entry[]> => {
+    if (isDemoMode) {
+      return [
+        ...demoStore.experiences
+          .filter((e) => e.author.id === authorId)
+          .map(experienceToEntry),
+        ...demoStore.contacts
+          .filter((c) => c.author.id === authorId)
+          .map(contactToEntry),
+      ].sort((a, b) => b.year - a.year);
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const [experiences, contacts] = await Promise.all([
+      fetchPaged<Row>((from, to) =>
+        supabase
+          .from("experiences")
+          .select(EXPERIENCE_SELECT)
+          .eq("author_id", authorId)
+          .order("year", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+      fetchPaged<Row>((from, to) =>
+        supabase
+          .from("contacts")
+          .select(CONTACT_SELECT)
+          .eq("author_id", authorId)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
+
+    return [
+      ...experiences.map((r) => experienceToEntry(mapExperience(r))),
+      ...contacts.map((r) => contactToEntry(mapContact(r))),
+    ].sort((a, b) => b.year - a.year);
+  },
+);
 
 /** Tout ce qu'il faut pour la fiche entreprise, en une passe. */
 export interface CompanyBundle {
   company: Company;
-  offers: JobOffer[];
   contacts: Contact[];
   experiences: Entry[];
 }
 
-export async function getCompanyBundle(
-  slug: string,
-): Promise<CompanyBundle | null> {
-  const company = await getCompanyBySlug(slug);
-  if (!company) return null;
+/**
+ * Fiche entreprise : deux lectures filtrées sur `company_id`, servies par les
+ * index composites de la migration 0004. La version précédente chargeait les
+ * contacts et expériences du réseau entier pour n'en garder qu'une poignée —
+ * le coût d'une fiche grandissait avec la plateforme.
+ */
+export const getCompanyBundle = cache(
+  async (slug: string): Promise<CompanyBundle | null> => {
+    const company = await getCompanyBySlug(slug);
+    if (!company) return null;
 
-  const [offers, contacts, entries] = await Promise.all([
-    getJobOffers(),
-    getContacts(),
-    getEntries(),
-  ]);
+    if (isDemoMode) {
+      // Filtrer un tableau en mémoire ne coûte rien : on réutilise les
+      // accesseurs pour garder exactement le même ordre d'affichage.
+      const [contacts, entries] = await Promise.all([
+        getContacts(),
+        getEntries(),
+      ]);
+      return {
+        company,
+        contacts: contacts.filter((c) => c.company.slug === slug),
+        experiences: entries.filter(
+          (e) => e.company.slug === slug && e.entryKind === "experience",
+        ),
+      };
+    }
 
-  return {
-    company,
-    offers: offers.filter((o) => o.company.slug === slug),
-    contacts: contacts.filter((c) => c.company.slug === slug),
-    experiences: entries.filter(
-      (e) => e.company.slug === slug && e.entryKind === "experience",
-    ),
-  };
+    const supabase = await createSupabaseServerClient();
+    const [contacts, experiences] = await Promise.all([
+      fetchPaged<Row>((from, to) =>
+        supabase
+          .from("contacts")
+          .select(CONTACT_SELECT)
+          .eq("company_id", company.id)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+      fetchPaged<Row>((from, to) =>
+        supabase
+          .from("experiences")
+          .select(EXPERIENCE_SELECT)
+          .eq("company_id", company.id)
+          .order("year", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
+
+    return {
+      company,
+      contacts: contacts.map(mapContact),
+      experiences: experiences.map((r) => experienceToEntry(mapExperience(r))),
+    };
+  },
+);
+
+/** Compteurs affichés par la liste des entreprises, agrégés en base. */
+export interface CompanyCounts {
+  contacts: number;
+  experiences: number;
 }
 
+export const getCompanyStats = cache(
+  async (): Promise<Map<string, CompanyCounts>> => {
+    const stats = new Map<string, CompanyCounts>();
+
+    if (isDemoMode) {
+      const bump = (slug: string, key: keyof CompanyCounts) => {
+        const row = stats.get(slug) ?? { contacts: 0, experiences: 0 };
+        row[key] += 1;
+        stats.set(slug, row);
+      };
+      for (const c of demoStore.contacts) bump(c.company.slug, "contacts");
+      for (const e of demoStore.experiences) bump(e.company.slug, "experiences");
+      return stats;
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const rows = await fetchPaged<Row>((from, to) =>
+      supabase
+        .from("company_stats")
+        .select("company_slug,contact_count,experience_count")
+        .order("company_slug")
+        .range(from, to),
+    );
+
+    for (const row of rows) {
+      stats.set(String(row.company_slug), {
+        contacts: Number(row.contact_count ?? 0),
+        experiences: Number(row.experience_count ?? 0),
+      });
+    }
+    return stats;
+  },
+);
+
+/**
+ * Statistiques du réseau.
+ *
+ * Une seule requête d'agrégat côté Postgres (`network_stats()`), au lieu de
+ * transférer toutes les contributions pour les compter en mémoire. En mode
+ * démo, le calcul en JavaScript de `computeStats` fait le même travail.
+ */
+export const getNetworkStats = cache(async (): Promise<NetworkStats> => {
+  if (isDemoMode) return computeStats(await getEntries());
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("network_stats");
+  if (error) throw dbFailure("repository", error);
+
+  const raw = (data ?? {}) as Partial<NetworkStats>;
+  return {
+    countries: raw.countries ?? 0,
+    cities: raw.cities ?? 0,
+    companies: raw.companies ?? 0,
+    experiences: raw.experiences ?? 0,
+    contacts: raw.contacts ?? 0,
+    members: raw.members ?? 0,
+    topCompanies: raw.topCompanies ?? [],
+    topCities: raw.topCities ?? [],
+    // La base renvoie la clé du domaine ; le libellé affiché reste côté
+    // application, pour que la traduction ne vive pas dans deux endroits.
+    topDomains: (raw.topDomains ?? []).map((d) => ({
+      ...d,
+      label: DOMAIN_LABELS[d.key as Domain] ?? d.key,
+    })),
+    byYear: raw.byYear ?? [],
+  };
+});
+
 /** Profil du membre connecté, ou `null` (visiteur, ou mode démo sans session). */
-export async function getCurrentMember(): Promise<Author | null> {
+export const getCurrentMember = cache(async (): Promise<Author | null> => {
   if (isDemoMode) return demoStore.currentMember;
 
   const supabase = await createSupabaseServerClient();
@@ -313,7 +567,7 @@ export async function getCurrentMember(): Promise<Author | null> {
     .maybeSingle();
 
   return data ? mapAuthor(data as Row) : null;
-}
+});
 
 /* ------------------------------------------------------------------ */
 /* Écriture                                                            */
@@ -397,7 +651,7 @@ export async function findOrCreateCompany(
     .select(COMPANY_COLUMNS)
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw dbFailure("repository", error);
   return { company: mapCompany(data as Row), created: true };
 }
 
@@ -453,12 +707,10 @@ export async function createContact(
       linkedin_url: input.linkedinUrl,
       notes: input.notes,
     })
-    .select(
-      `id,domain,first_name,last_name,position,linkedin_url,notes,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`,
-    )
+    .select(CONTACT_SELECT)
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw dbFailure("repository", error);
   return mapContact(data as Row);
 }
 
@@ -511,8 +763,11 @@ export async function updateContact(
     .eq("id", id)
     .eq("author_id", member.id);
 
-  if (error) throw new Error(error.message);
-  if (count === 0) throw new Error("Contact introuvable ou non modifiable");
+  if (error) throw dbFailure("repository", error);
+  if (count === 0) {
+    logSecurityEvent("ownership.denied", { action: "contacts.update", member: member.id });
+    throw new Error("Contact introuvable ou non modifiable");
+  }
 }
 
 export async function deleteContact(id: string, member: Author): Promise<void> {
@@ -532,73 +787,11 @@ export async function deleteContact(id: string, member: Author): Promise<void> {
     .eq("id", id)
     .eq("author_id", member.id);
 
-  if (error) throw new Error(error.message);
-  if (count === 0) throw new Error("Contact introuvable ou non supprimable");
-}
-
-export interface OfferWrite {
-  companyId: string;
-  placeId: string;
-  title: string;
-  domain: JobOffer["domain"];
-  kind: JobOffer["kind"];
-  durationMonths: number | null;
-  description: string | null;
-  technologies: string[];
-  url: string | null;
-}
-
-export async function createJobOffer(
-  input: OfferWrite,
-  author: Author,
-): Promise<JobOffer> {
-  if (isDemoMode) {
-    const company = demoCompanies().find((c) => c.id === input.companyId);
-    const place = PLACES_BY_ID.get(input.placeId);
-    if (!company) throw new Error("Entreprise inconnue");
-    if (!place) throw new Error("Ville inconnue");
-
-    const offer: JobOffer = {
-      id: `o-${crypto.randomUUID()}`,
-      company,
-      place,
-      postedBy: author,
-      title: input.title,
-      domain: input.domain,
-      kind: input.kind,
-      durationMonths: input.durationMonths,
-      description: input.description,
-      technologies: input.technologies,
-      url: input.url,
-      publishedAt: new Date().toISOString(),
-      expiresAt: null,
-    };
-    demoStore.offers.push(offer);
-    return offer;
+  if (error) throw dbFailure("repository", error);
+  if (count === 0) {
+    logSecurityEvent("ownership.denied", { action: "contacts.delete", member: member.id });
+    throw new Error("Contact introuvable ou non supprimable");
   }
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("job_offers")
-    .insert({
-      company_id: input.companyId,
-      place_id: input.placeId,
-      posted_by_id: author.id,
-      title: input.title,
-      domain: input.domain,
-      kind: input.kind,
-      duration_months: input.durationMonths,
-      description: input.description,
-      technologies: input.technologies,
-      url: input.url,
-    })
-    .select(
-      `id,title,domain,kind,duration_months,description,technologies,url,published_at,expires_at,${COMPANY_SELECT},${PLACE_SELECT},${POSTER_SELECT}`,
-    )
-    .single();
-
-  if (error) throw new Error(error.message);
-  return mapJobOffer(data as Row);
 }
 
 export async function createExperience(
@@ -645,5 +838,93 @@ export async function createExperience(
     title: input.title,
     summary: input.summary,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw dbFailure("repository", error);
+}
+
+export interface ExperienceWrite {
+  companyId: string;
+  placeId: string;
+  domain: Experience["domain"];
+  kind: Experience["kind"];
+  year: number;
+  title: string;
+  summary: string | null;
+}
+
+export async function updateExperience(
+  id: string,
+  input: ExperienceWrite,
+  member: Author,
+): Promise<void> {
+  if (isDemoMode) {
+    const experience = demoStore.experiences.find((e) => e.id === id);
+    if (!experience) throw new Error("Expérience introuvable");
+    if (experience.author.id !== member.id) {
+      throw new Error("Expérience d'un autre membre");
+    }
+
+    const company = demoCompanies().find((c) => c.id === input.companyId);
+    const place = PLACES_BY_ID.get(input.placeId);
+    if (!company) throw new Error("Entreprise inconnue");
+    if (!place) throw new Error("Ville inconnue");
+
+    Object.assign(experience, {
+      company,
+      place,
+      domain: input.domain,
+      kind: input.kind,
+      year: input.year,
+      title: input.title,
+      summary: input.summary,
+    });
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error, count } = await supabase
+    .from("experiences")
+    .update(
+      {
+        company_id: input.companyId,
+        place_id: input.placeId,
+        domain: input.domain,
+        kind: input.kind,
+        year: input.year,
+        title: input.title,
+        summary: input.summary,
+      },
+      { count: "exact" },
+    )
+    .eq("id", id)
+    .eq("author_id", member.id);
+
+  if (error) throw dbFailure("repository", error);
+  if (count === 0) {
+    logSecurityEvent("ownership.denied", { action: "experiences.update", member: member.id });
+    throw new Error("Expérience introuvable ou non modifiable");
+  }
+}
+
+export async function deleteExperience(id: string, member: Author): Promise<void> {
+  if (isDemoMode) {
+    const index = demoStore.experiences.findIndex(
+      (e) => e.id === id && e.author.id === member.id,
+    );
+    if (index === -1) throw new Error("Expérience introuvable ou non supprimable");
+    demoStore.experiences.splice(index, 1);
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error, count } = await supabase
+    .from("experiences")
+    .delete({ count: "exact" })
+    .eq("id", id)
+    .eq("author_id", member.id);
+
+  if (error) throw dbFailure("repository", error);
+  if (count === 0) {
+    logSecurityEvent("ownership.denied", { action: "experiences.delete", member: member.id });
+    throw new Error("Expérience introuvable ou non supprimable");
+  }
 }

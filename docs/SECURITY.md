@@ -11,7 +11,13 @@ l'endroit indiqué.
 |---|---|
 | Pas de colonne `email` ni `phone` sur `contacts` | `supabase/migrations/0001_init.sql` |
 | Seul un lien LinkedIn **public** est accepté, format vérifié | contrainte `CHECK` SQL + `validation.ts` |
-| Les champs libres sont scannés (email, téléphone) et refusés | `findPrivateContactDetails()` dans `src/lib/validation.ts`, appelé par la Server Action |
+| Les champs libres sont scannés (email, téléphone) et refusés | contrainte `CHECK … no_private_details` (migration `0005`) **et** `findPrivateContactDetails()` côté application |
+
+> La règle vivait uniquement dans la Server Action. Comme la clé anon est
+> publique, un membre pouvait l'ignorer en écrivant directement dans PostgREST.
+> Elle est depuis appliquée par la base, sur `contacts.notes`,
+> `experiences.summary` et `job_offers.description` ; la version applicative ne
+> sert plus qu'à formuler un message clair avant l'aller-retour.
 
 Si quelqu'un veut joindre un contact, il passe par le membre qui l'a ajouté.
 C'est le cœur du produit, pas une limitation.
@@ -24,6 +30,11 @@ C'est le cœur du produit, pas une limitation.
   rien. La garantie réelle est le trigger Postgres
   `enforce_allowed_email_domain` : un profil ne peut pas être créé depuis une
   adresse hors périmètre, même avec une requête forgée.
+- L'**envoi** du lien est restreint par le hook `restrict_signup_domain`
+  (*Before User Created*). Il est fourni par la migration `0005` mais doit être
+  activé dans le tableau de bord — voir `SETUP_SUPABASE.md`. Sans lui,
+  n'importe qui peut faire envoyer des liens de connexion à n'importe quelle
+  adresse et épuiser le quota d'emails du projet.
 - `src/app/auth/callback/route.ts` revérifie le domaine et déconnecte sinon.
 
 ## 3. Row Level Security partout
@@ -32,10 +43,12 @@ Toutes les tables ont `enable row level security`. Résumé des politiques :
 
 | Table | Lecture | Écriture |
 |---|---|---|
-| `profiles` | membres | soi-même (le champ `role` est protégé par trigger) |
+| `profiles` | membres | soi-même ; `role` verrouillé à `member` **à la création comme à la modification** |
 | `experiences`, `contacts` | membres | l'auteur, ou la modération |
-| `companies`, `places` | membres | création par tout membre, modification par la modération |
-| `reports` | son auteur + la modération | tout membre peut signaler |
+| `companies` | membres | création par tout membre, modification par la modération |
+| `places` | membres | modération seule (en attendant le parcours « proposer une ville ») |
+| `audit_log` | modération | déclencheurs uniquement |
+| `reports` | son auteur + la modération | tout **membre** peut signaler |
 
 Le rôle `anon` n'a aucune politique : sans session, la base ne renvoie rien.
 
@@ -51,12 +64,20 @@ Le rôle `anon` n'a aucune politique : sans session, la base ne renvoie rien.
 
 ## 5. En-têtes HTTP
 
-Définis dans `next.config.ts` :
+La CSP est construite par requête dans `src/proxy.ts` (`src/lib/csp.ts`) ; les
+en-têtes constants restent dans `next.config.ts`.
 
-- **CSP stricte** — `default-src 'self'`, `object-src 'none'`,
-  `frame-ancestors 'none'`, `form-action 'self'`, `base-uri 'self'`.
+- **CSP à nonce** — `script-src 'self' 'nonce-…' 'strict-dynamic'`. Le
+  `'unsafe-inline'` qui s'y trouvait autorisait aussi bien le script du
+  framework que celui d'une éventuelle injection : la directive ne protégeait
+  de rien. Le nonce, tiré à chaque requête, distingue les deux. `'unsafe-eval'`
+  n'est ajouté qu'en développement.
+- `style-src` garde `'unsafe-inline'`, et c'est délibéré : l'interface pose des
+  styles en attribut, que `style-src-attr` n'autorise pas par nonce.
+- `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`,
+  `form-action 'self'`, `base-uri 'self'`, `upgrade-insecure-requests`.
   Aucun script tiers, aucune tuile distante, aucun CDN : c'est ce qui rend
-  cette CSP tenable. `'unsafe-eval'` n'est ajouté qu'en développement.
+  cette CSP tenable.
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`
   restrictive, `Strict-Transport-Security`.
@@ -83,13 +104,25 @@ Tout lien externe (LinkedIn) porte `target="_blank"` +
 `rel="noopener noreferrer nofollow"` : pas d'accès à `window.opener`, pas de
 `Referer` transmis.
 
+## 5 bis. Session
+
+Le cookie de session est posé avec `secure` en production, `sameSite=lax` et
+une durée de vie glissante de 30 jours (`src/lib/supabase/cookie-options.ts`).
+Il n'est **pas** `httpOnly`, et c'est une contrainte, pas un oubli : le client
+navigateur de Supabase lit lui-même le jeton pour rafraîchir la session. La
+conséquence est explicite — une faille XSS donnerait la session, pas seulement
+une action dans la page. C'est la raison pour laquelle la CSP a été refaite
+autour d'un nonce.
+
 ## Limites connues (à traiter — voir ROADMAP)
 
-- **Pas de limitation de débit** sur l'envoi de liens magiques ni sur les
-  écritures. À faire avant l'ouverture au-delà d'un cercle restreint.
-- **Pas d'audit log** des modifications et suppressions.
-- **Modération manuelle** : les signalements sont stockés mais il n'y a pas
-  encore d'interface pour les traiter.
+- **Limitation de débit.** Les écritures sont plafonnées à 12 par minute, par
+  membre et par table, par le déclencheur `enforce_write_quota` en base — donc
+  quelle que soit la porte d'entrée. Reste hors périmètre : la limitation par
+  IP de l'envoi de liens magiques, qui se joue au niveau de Supabase ou du
+  réseau.
+- **Modération manuelle** : les signalements et le journal d'audit sont
+  stockés, mais il n'y a pas encore d'interface pour les traiter.
 - **Consentement des contacts externes** : la plateforme ne le collecte pas.
   La règle est donc de ne publier qu'une information qu'on pourrait assumer
   devant la personne concernée. Un contact peut demander son retrait par
