@@ -86,7 +86,7 @@ export function ProfileChannels({ member }: { member: Author }) {
       ) : null}
 
       <div className="flex gap-2">
-        <Button type="submit" variant="primary" size="sm" disabled={pending}>
+        <Button type="submit" variant="primary" size="sm" loading={pending}>
           {pending ? "Enregistrement…" : "Enregistrer"}
         </Button>
         {member.linkedinUrl || member.contactEmail ? (

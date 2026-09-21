@@ -70,6 +70,8 @@ export async function createCompanyProfile(
         name: input.name,
         industry: input.industry,
         website: input.website?.trim() || null,
+        /* Le domaine sort du site web — voir `findOrCreateCompany`. Rien n'est
+           déduit du nom : « Inwi » ne dit pas si c'est `.ma` ou `.com`. */
         linkedinUrl: input.linkedinUrl?.trim() || null,
         logoUrl: input.logoUrl?.trim() || null,
         description: input.description?.trim() || null,

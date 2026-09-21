@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
+import { periodLabel, relationLabel } from "@/lib/career";
+import { personHref } from "@/lib/links";
+import { ExperienceCareerFields } from "@/components/career/ExperienceCareerFields";
 import {
   editExperience,
   removeExperience,
@@ -58,9 +62,14 @@ export function CompanyExperiences({
                     <p className="mt-0.5 text-meta text-text-faint">
                       {entry.place.city}
                       {entry.experienceKind
-                        ? ` · ${EXPERIENCE_KIND_LABELS[entry.experienceKind]} ${entry.year}`
+                        ? ` · ${relationLabel(entry)} · ${periodLabel(entry)}`
                         : ""}
                     </p>
+                    {entry.skills.length > 0 ? (
+                      <p className="mt-1 font-mono text-label text-text-faint">
+                        {entry.skills.join(" · ")}
+                      </p>
+                    ) : null}
                   </div>
                   <DomainDot domain={entry.domain} />
                 </div>
@@ -74,7 +83,13 @@ export function CompanyExperiences({
                 <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta">
                   <span className="text-text-faint">
                     Partagé par{" "}
-                    <span className="text-text-muted">{entry.author.fullName}</span> ·{" "}
+                    <Link
+                      href={personHref(entry.author.id)}
+                      className="text-text-muted underline-offset-2 hover:text-text hover:underline"
+                    >
+                      {entry.author.fullName}
+                    </Link>{" "}
+                    ·{" "}
                     {STATUS_LABELS[entry.author.status]} {entry.author.promotion} ·{" "}
                     {CAMPUS_LABELS[entry.author.campus]}
                   </span>
@@ -229,6 +244,16 @@ function ExperienceEditor({
           />
         </label>
 
+        <ExperienceCareerFields
+          defaults={{
+            startDate: entry.startDate,
+            endDate: entry.endDate,
+            isCurrent: entry.isCurrent,
+            skills: entry.skills,
+          }}
+          errors={err}
+        />
+
         <label className="block sm:col-span-2">
           <span className={labelClass}>Ce qui aiderait quelqu&apos;un qui postule</span>
           <textarea
@@ -254,7 +279,7 @@ function ExperienceEditor({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" variant="primary" size="sm" disabled={pending}>
+        <Button type="submit" variant="primary" size="sm" loading={pending}>
           {pending ? "Enregistrement…" : "Enregistrer"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
@@ -269,7 +294,7 @@ function ExperienceEditor({
               variant="danger"
               size="sm"
               formAction={deleteAction}
-              disabled={deletePending}
+              loading={deletePending}
             >
               {deletePending ? "Suppression…" : "Confirmer"}
             </Button>

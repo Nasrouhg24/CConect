@@ -3,13 +3,21 @@ import { PageShell } from "@/components/PageShell";
 import { ProfileChannels } from "@/components/ProfileChannels";
 import { summarize } from "@/lib/entries";
 import { CAMPUS_LABELS, STATUS_LABELS } from "@/lib/labels";
+import { CareerProfileForm } from "@/components/career/CareerProfileForm";
+import { objectiveFor } from "@/lib/advisor";
 import {
+  getCareerProfile,
+  getCompanies,
   getCurrentMember,
   getEntriesByAuthor,
+  getPlaces,
+  getProfilePhotoVersion,
   isDemoMode,
 } from "@/lib/repository";
+import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { Metric } from "@/components/ui";
 import { contactDisplayName } from "@/lib/types";
+import { buttonClass } from "@/components/ui/button";
 
 export const metadata = { title: "Profil" };
 
@@ -25,7 +33,7 @@ export default async function ProfilePage() {
           </p>
           <Link
             href="/login"
-            className="mt-4 inline-block rounded-sm bg-accent px-4 py-2 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
+            className={buttonClass({ variant: "primary", className: "mt-4 text-list" })}
           >
             Se connecter
           </Link>
@@ -34,8 +42,18 @@ export default async function ProfilePage() {
     );
   }
 
-  const mine = await getEntriesByAuthor(member.id);
+  const [mine, career, companies, places, photoVersion] = await Promise.all([
+    getEntriesByAuthor(member.id),
+    getCareerProfile(member),
+    getCompanies(),
+    getPlaces(),
+    getProfilePhotoVersion(member.id),
+  ]);
   const summary = summarize(mine);
+  const countries = [...new Map(places.map((p) => [p.countryCode, p.countryName])).entries()]
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const objective = objectiveFor(member);
 
   return (
     <PageShell
@@ -45,11 +63,34 @@ export default async function ProfilePage() {
       }`}
       width="narrow"
     >
+      <div className="-mt-2 mb-8">
+        <ProfilePhoto member={{ id: member.id, fullName: member.fullName }} version={photoVersion} />
+      </div>
+
       <div className="mb-10 grid grid-cols-3 gap-6 border-y border-border py-5">
         <Metric value={summary.experiences} label="expériences" />
         <Metric value={summary.contacts} label="contacts" />
         <Metric value={summary.companies.length} label="entreprises" />
       </div>
+
+      <section id="parcours" className="mb-10 scroll-mt-20">
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="mb-1 text-section text-text">Parcours et objectifs</h2>
+            <p className="text-list text-text-muted">
+              Objectif actuel :{" "}
+              <span className="text-text">
+                {objective.label}
+              </span>{" "}
+              <span className="text-text-faint">· {objective.context}</span>
+            </p>
+          </div>
+          <Link href="/advisor" className="text-list text-accent underline-offset-2 hover:underline">
+            Voir le conseiller →
+          </Link>
+        </div>
+        <CareerProfileForm profile={career} countries={countries} companies={companies} />
+      </section>
 
       <section className="mb-10">
         <h2 className="mb-1 text-section text-text">Comment on te joint</h2>
@@ -59,7 +100,7 @@ export default async function ProfilePage() {
         <ProfileChannels member={member} />
       </section>
 
-      <section>
+      <section id="contributions" className="scroll-mt-6">
         <h2 className="mb-3 text-section text-text">Mes contributions</h2>
         {mine.length === 0 ? (
           <p className="text-list text-text-faint">

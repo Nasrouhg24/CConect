@@ -58,7 +58,7 @@ export function NetworkSearch({
 
   return (
     <div ref={boxRef} className="relative w-full">
-      <div className="flex h-11 items-center gap-2.5 rounded-md border border-border bg-surface/95 px-3.5 shadow-[var(--shadow-panel)] backdrop-blur-md transition-colors focus-within:border-accent/70">
+      <div className="flex h-12 items-center gap-2.5 rounded-sm border border-border-strong bg-surface px-3.5 shadow-[var(--shadow-panel)] transition-colors focus-within:border-accent">
         <svg viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-text-faint" aria-hidden>
           <circle cx="7" cy="7" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
           <path d="M10.2 10.2 13.5 13.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
@@ -117,6 +117,17 @@ export function NetworkSearch({
           </button>
         ) : null}
 
+        {/* Repère clavier : signale que le champ est la commande principale
+            de l'écran. `aria-hidden` parce qu'il ne décrit rien pour qui
+            n'utilise pas la souris — le champ garde son libellé propre. */}
+        {value.length === 0 ? (
+          <span
+            aria-hidden
+            className="hidden shrink-0 rounded-xs border border-border-strong px-1.5 py-px font-mono text-micro text-text-faint sm:block"
+          >
+            /
+          </span>
+        ) : null}
         <span className="hidden shrink-0 border-l border-border pl-3 font-mono text-label tabular-nums text-text-faint sm:block">
           {resultCount}
         </span>
@@ -126,7 +137,7 @@ export function NetworkSearch({
         <ul
           id="cc-search-suggestions"
           role="listbox"
-          className="animate-fade absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-md border border-border bg-surface-raised py-1 shadow-[var(--shadow-overlay)]"
+          className="animate-fade absolute left-0 right-0 top-[calc(100%+8px)] z-30 overflow-hidden rounded-md border border-border bg-surface-raised py-1 shadow-[var(--shadow-overlay)]"
         >
           {suggestions.map((suggestion, index) => (
             <li key={`${suggestion.kind}-${suggestion.label}`} role="none">

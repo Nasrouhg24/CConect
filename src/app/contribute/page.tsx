@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ContributionForm } from "@/components/ContributionForm";
-import { PageShell } from "@/components/PageShell";
+import { FlowShell } from "@/components/PageShell";
+import { buttonClass } from "@/components/ui/button";
 import {
   getCompanies,
   getCurrentMember,
@@ -18,29 +19,29 @@ export default async function ContributePage() {
   ]);
 
   return (
-    <PageShell title="Ajouter" width="narrow">
+    <FlowShell>
       {member ? (
-        <>
-          <p className="mb-6 text-meta text-text-faint">
-            En tant que{" "}
-            <span className="text-text-muted">{member.fullName}</span>
-            {isDemoMode ? " (démo)" : ""}
-          </p>
-          <ContributionForm places={places} companies={companies} />
-        </>
+        <ContributionForm
+          places={places}
+          companies={companies}
+          author={`${member.fullName}${isDemoMode ? " (démo)" : ""}`}
+        />
       ) : (
-        <div className="rounded-md border border-border bg-surface p-8 text-center">
-          <p className="text-body text-text-muted">
+        <>
+          <h1 className="font-display text-title font-medium tracking-tight text-text">
+            Ajouter
+          </h1>
+          <p className="mt-1.5 text-body text-text-muted">
             Connecte-toi avec ton adresse UM6P.
           </p>
           <Link
             href="/login"
-            className="mt-4 inline-block rounded-sm bg-accent px-4 py-2 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
+            className={buttonClass({ variant: "primary", size: "lg", className: "mt-8 text-list font-semibold" })}
           >
             Se connecter
           </Link>
-        </div>
+        </>
       )}
-    </PageShell>
+    </FlowShell>
   );
 }

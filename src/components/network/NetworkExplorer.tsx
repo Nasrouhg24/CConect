@@ -22,12 +22,15 @@ export function NetworkExplorer({
   entries,
   companies,
   places,
+  initialFilters = EMPTY_FILTERS,
 }: {
   entries: Entry[];
   companies: Company[];
   places: Place[];
+  /** Filtres lus dans l'URL : recherche de l'accueil, liens du conseiller. */
+  initialFilters?: Filters;
 }) {
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<Filters>(initialFilters);
 
   const filtered = useMemo(
     () => filterEntries(entries, filters),
@@ -35,7 +38,24 @@ export function NetworkExplorer({
   );
   const clusters = useMemo(() => clusterByPlace(filtered), [filtered]);
 
-  const selected = clusters.find((c) => c.place.id === filters.city) ?? null;
+  /**
+   * La ville dont le panneau est ouvert — **pas** un filtre.
+   *
+   * Elle l'était : cliquer un marqueur posait `filters.city`, ce qui retirait
+   * de la carte toutes les autres villes. Le panneau s'ouvrait donc sur une
+   * carte vidée, et on ne pouvait pas passer d'une ville à l'autre sans le
+   * fermer d'abord. Sélectionner et filtrer sont deux gestes différents :
+   * `filters.city` reste ce que pose le menu de filtres, la sélection ne fait
+   * qu'ouvrir le détail.
+   */
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+
+  const selected = clusters.find((c) => c.place.id === selectedPlaceId) ?? null;
+
+  /* Un filtre peut faire disparaître la ville ouverte : `selected` vaut alors
+     `null` et le panneau se referme de lui-même. Rien à synchroniser — c'est
+     une dérivation, pas un effet. L'identifiant reste en mémoire, donc retirer
+     le filtre rouvre la ville qu'on regardait. */
 
   const countryNames = useMemo(
     () => new Map(entries.map((e) => [e.place.countryCode, e.place.countryName])),
@@ -53,20 +73,25 @@ export function NetworkExplorer({
     <section className="relative flex-1 overflow-hidden">
       <WorldMap
         clusters={clusters}
-        selectedPlaceId={filters.city}
-        onSelectPlace={(placeId) => setFilters((f) => ({ ...f, city: placeId }))}
+        selectedPlaceId={selectedPlaceId}
+        onSelectPlace={setSelectedPlaceId}
         panelOpen={Boolean(selected)}
       />
 
       {/* Barre flottante : au-dessus de la carte, jamais à côté. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-4 sm:px-6">
-        <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-col gap-2.5">
+        <div className="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-2.5">
           <div className="flex items-start gap-2">
             <NetworkSearch
               entries={entries}
               value={filters.q}
               onChange={(q) => setFilters((f) => ({ ...f, q }))}
-              onApply={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+              onApply={(patch) => {
+                setFilters((f) => ({ ...f, ...patch }));
+                /* Choisir une ville dans la recherche revient à la désigner
+                   sur la carte : le panneau s'ouvre, comme au clic. */
+                if (patch.city !== undefined) setSelectedPlaceId(patch.city);
+              }}
               resultCount={filtered.length}
             />
             <FilterMenu
@@ -91,18 +116,22 @@ export function NetworkExplorer({
       </div>
 
       {/* Repères de lecture et attribution : une seule ligne, coin bas gauche. */}
-      <div className="pointer-events-none absolute bottom-5 left-5 z-20 hidden items-center gap-5 sm:flex">
-        <Legend label="1 contribution" tone="var(--color-node-1)" size={6} />
-        <Legend label="Plusieurs" tone="var(--color-node-2)" size={9} />
-        <Legend label="Pôle du réseau" tone="var(--color-node-3)" size={12} />
-        <span className="border-l border-border pl-5 text-micro uppercase tracking-[0.1em] text-text-faint/70">
-          Natural Earth · domaine public
-        </span>
+      {/* Carte-index : une entrée par ligne, en mono. Sur une seule ligne,
+          les trois paliers se lisaient comme une phrase. */}
+      <div className="pointer-events-none absolute bottom-5 left-5 z-20 hidden sm:block">
+        <div className="flex flex-col gap-1 rounded-sm border border-border bg-surface px-3 py-2.5 font-mono text-micro text-text-faint">
+          <Legend label="1 contribution" tone="var(--color-node-1)" size={6} />
+          <Legend label="Plusieurs" tone="var(--color-node-2)" size={9} />
+          <Legend label="Pôle du réseau" tone="var(--color-node-3)" size={12} />
+          <span className="mt-1 border-t border-border pt-1.5 uppercase tracking-[0.09em]">
+            Natural Earth · domaine public
+          </span>
+        </div>
       </div>
 
       {filtered.length === 0 && hasActiveFilters(filters) ? (
         <div className="animate-fade pointer-events-none absolute inset-0 z-10 grid place-items-center">
-          <div className="pointer-events-auto rounded-md border border-border bg-surface-raised px-5 py-4 text-center shadow-[var(--shadow-panel)]">
+          <div className="pointer-events-auto rounded-md border border-border bg-surface px-5 py-4 text-center shadow-[var(--shadow-panel)]">
             <p className="text-body text-text">Aucun résultat sur la carte</p>
             <p className="mt-1 text-meta text-text-muted">
               Élargis la recherche, ou ajoute la première contribution.
@@ -125,14 +154,14 @@ export function NetworkExplorer({
             <PlaceDrawer
               place={selected.place}
               entries={selected.entries}
-              onClose={() => setFilters((f) => ({ ...f, city: null }))}
+              onClose={() => setSelectedPlaceId(null)}
             />
           </div>
           <div className="animate-sheet absolute inset-x-0 bottom-0 z-30 h-[58vh] overflow-hidden rounded-t-lg border-t border-border shadow-[var(--shadow-overlay)] md:hidden">
             <PlaceDrawer
               place={selected.place}
               entries={selected.entries}
-              onClose={() => setFilters((f) => ({ ...f, city: null }))}
+              onClose={() => setSelectedPlaceId(null)}
             />
           </div>
         </>

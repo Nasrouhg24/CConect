@@ -7,7 +7,9 @@ import { CompanyExperiences } from "@/components/companies/CompanyExperiences";
 import { DomainDot, Metric } from "@/components/ui";
 import { summarize } from "@/lib/entries";
 import { DOMAIN_LABELS, INDUSTRY_LABELS } from "@/lib/labels";
+import { CompanyConnections } from "@/components/companies/CompanyConnections";
 import {
+  getCareerProfile,
   getCompanies,
   getCompanyBundle,
   getCurrentMember,
@@ -31,6 +33,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
     getCurrentMember(),
     getCompanies(),
   ]);
+  const career = member ? await getCareerProfile(member) : null;
   const summary = summarize(experiences);
   const cities = [
     ...new Map(
@@ -89,6 +92,12 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
         <Metric value={summary.members} label="membres CC" />
       </div>
 
+      <CompanyConnections
+        company={company}
+        experiences={experiences}
+        focusDomain={career?.targetDomain ?? null}
+      />
+
       <section id="contacts" className="mb-12 scroll-mt-20">
         <h2 className="mb-3 text-label font-medium uppercase tracking-[0.08em] text-text-faint">
           Contacts · {contacts.length}
@@ -110,7 +119,7 @@ export default async function CompanyPage({ params }: PageProps<"/companies/[slu
         )}
       </section>
 
-      <section className="mb-12">
+      <section id="experiences" className="mb-12 scroll-mt-20">
         <h2 className="mb-3 text-label font-medium uppercase tracking-[0.08em] text-text-faint">
           Expériences · {experiences.length}
         </h2>

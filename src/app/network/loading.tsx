@@ -15,9 +15,9 @@ export default function NetworkLoading() {
         <div className="absolute inset-0 bg-[var(--color-map-ocean)]" />
 
         <div className="absolute inset-x-0 top-0 z-30 px-4 pt-4 sm:px-6">
-          <div className="mx-auto flex w-full max-w-3xl items-start gap-2">
-            <Skeleton className="h-11 flex-1 rounded-md" />
-            <Skeleton className="h-11 w-24 rounded-md" />
+          <div className="mx-auto flex w-full max-w-4xl items-start gap-2">
+            <Skeleton className="h-12 flex-1 rounded-sm" />
+            <Skeleton className="h-12 w-24 rounded-sm" />
           </div>
         </div>
 

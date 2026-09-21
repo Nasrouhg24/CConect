@@ -281,7 +281,7 @@ function ContactEditor({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" variant="primary" size="sm" disabled={editPending}>
+        <Button type="submit" variant="primary" size="sm" loading={editPending}>
           {editPending ? "Enregistrement…" : "Enregistrer"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
@@ -296,7 +296,7 @@ function ContactEditor({
               variant="danger"
               size="sm"
               formAction={deleteAction}
-              disabled={deletePending}
+              loading={deletePending}
             >
               {deletePending ? "Suppression…" : "Confirmer"}
             </Button>

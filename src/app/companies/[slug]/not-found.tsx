@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { buttonClass } from "@/components/ui/button";
 
 /**
  * Entreprise introuvable.
@@ -25,13 +26,13 @@ export default function CompanyNotFound() {
         <div className="mt-6 flex flex-wrap gap-2.5">
           <Link
             href="/companies/new"
-            className="inline-flex h-9 items-center rounded-sm bg-accent px-4 text-body font-medium text-on-accent transition-colors hover:bg-accent-hover"
+            className={buttonClass({ variant: "primary" })}
           >
             Créer la fiche
           </Link>
           <Link
             href="/companies"
-            className="inline-flex h-9 items-center rounded-sm border border-border-strong bg-surface-raised px-4 text-body font-medium text-text transition-colors hover:bg-surface-hover"
+            className={buttonClass()}
           >
             Parcourir
           </Link>

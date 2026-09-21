@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { geoNaturalEarth1, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import { feature } from "topojson-client";
+import { isPlottable } from "@/lib/entries";
 import type { Topology } from "topojson-specification";
 import worldTopo from "world-atlas/countries-110m.json";
 import type { PlaceCluster } from "@/lib/entries";
@@ -12,6 +13,8 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 14;
 /** Marge haute réservée à la barre de recherche flottante. */
 const TOP_INSET = 76;
+/** Déplacement (px) en deçà duquel un appui reste un clic. */
+const DRAG_THRESHOLD = 4;
 
 /**
  * Carte vectorielle rendue en SVG : pas de tuiles, pas de clé API, aucune
@@ -42,6 +45,42 @@ interface View {
 }
 
 const HOME: View = { k: 1, x: 0, y: 0 };
+const NO_INSET = { right: 0, bottom: 0 };
+/** Zoom d'une ville seule : assez pour la détacher de ses voisines. */
+const SINGLE_FOCUS_SCALE = 5;
+const MAX_FOCUS_SCALE = 6;
+
+/** Vue qui contient ces points, centrée sur la partie visible de la carte. */
+function fitView(
+  points: { cx: number; cy: number }[],
+  size: { w: number; h: number },
+  inset: { right: number; bottom: number },
+  clamp: (view: View) => View,
+): View {
+  if (points.length === 0) return HOME;
+  const visibleW = size.w * (1 - inset.right);
+  const visibleH = size.h * (1 - inset.bottom);
+  const xs = points.map((p) => p.cx);
+  const ys = points.map((p) => p.cy);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const k =
+    points.length === 1
+      ? SINGLE_FOCUS_SCALE
+      : Math.max(
+          1,
+          Math.min(
+            MAX_FOCUS_SCALE,
+            (visibleW * 0.6) / Math.max(maxX - minX, 1),
+            (visibleH * 0.6) / Math.max(maxY - minY, 1),
+          ),
+        );
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  return clamp({ k, x: visibleW / 2 - cx * k, y: visibleH / 2 - cy * k });
+}
 
 export interface WorldMapProps {
   clusters: PlaceCluster[];
@@ -49,6 +88,18 @@ export interface WorldMapProps {
   onSelectPlace: (placeId: string | null) => void;
   /** Un panneau contextuel occupe la droite de la carte. */
   panelOpen?: boolean;
+  /**
+   * Cadrage piloté de l'extérieur (mode terminal). Absent : la carte gère seule
+   * son zoom, comme avant. Présent : chaque nouvelle liste recadre la vue sur
+   * ces villes ; vide, elle revient à la vue du monde. L'utilisateur garde la
+   * main ensuite — rien ne le ramène de force tant que la liste ne change pas.
+   */
+  focusPlaceIds?: readonly string[];
+  /**
+   * Part de la carte masquée par un panneau (0–1), pour centrer le cadrage sur
+   * la zone réellement visible.
+   */
+  focusInset?: { right: number; bottom: number };
 }
 
 export function WorldMap({
@@ -56,6 +107,8 @@ export function WorldMap({
   selectedPlaceId,
   onSelectPlace,
   panelOpen = false,
+  focusPlaceIds,
+  focusInset = NO_INSET,
 }: WorldMapProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -64,6 +117,7 @@ export function WorldMap({
   const [eased, setEased] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [focusIndex, setFocusIndex] = useState(0);
+  const [appliedFocus, setAppliedFocus] = useState<string | null>(null);
   const drag = useRef<{
     pointerId: number;
     startX: number;
@@ -72,6 +126,7 @@ export function WorldMap({
     originY: number;
     moved: boolean;
   } | null>(null);
+  const justDragged = useRef(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -123,8 +178,15 @@ export function WorldMap({
   const points = useMemo(
     () =>
       clusters.flatMap((cluster) => {
+        /* Deux garde-fous, pas un : `isPlottable` écarte la donnée douteuse
+           (coordonnée manquante, hors plage, `0, 0` de repli), et le test
+           suivant écarte ce que la projection elle-même refuse de placer —
+           elle renvoie `null`, ou un couple contenant `NaN`. Un `NaN` dans un
+           attribut SVG ne fait pas d'erreur : il fait disparaître le marqueur
+           sans rien dire. */
+        if (!isPlottable(cluster.place)) return [];
         const xy = projection([cluster.place.lng, cluster.place.lat]);
-        if (!xy) return [];
+        if (!xy || !Number.isFinite(xy[0]) || !Number.isFinite(xy[1])) return [];
         const count = cluster.entries.length;
         // Aire proportionnelle au volume : le rayon suit la racine.
         const r = 5 + Math.sqrt(count / maxCount) * 9;
@@ -134,6 +196,8 @@ export function WorldMap({
             cx: xy[0],
             cy: xy[1],
             r,
+            isHub: count >= Math.max(4, maxCount * 0.6),
+            isSingle: count === 1,
             tone:
               count >= Math.max(4, maxCount * 0.6)
                 ? "var(--color-node-3)"
@@ -145,6 +209,70 @@ export function WorldMap({
       }),
     [clusters, maxCount, projection],
   );
+
+  /* Cadrage piloté : ajusté pendant le rendu, pas dans un effet, pour que la
+     vue et les marqueurs du nouveau chemin arrivent dans la même image. La clé
+     inclut la taille : un redimensionnement recadre sur la même sélection. */
+  const focusKey =
+    focusPlaceIds === undefined
+      ? null
+      : `${focusPlaceIds.join(",")}@${Math.round(size.w)}x${Math.round(size.h)}`;
+  if (focusKey !== null && focusKey !== appliedFocus) {
+    setAppliedFocus(focusKey);
+    setEased(true);
+    const wanted = new Set(focusPlaceIds);
+    setView(
+      fitView(
+        points.filter((p) => wanted.has(p.cluster.place.id)),
+        size,
+        focusInset,
+        clampView,
+      ),
+    );
+  }
+
+  /**
+   * Arêtes du réseau : une ville est reliée à une autre dès qu'elles
+   * partagent une entreprise.
+   *
+   * C'est le remplacement du halo — au lieu d'un éclairage qui suggère « un
+   * réseau », le trait *est* le réseau, et il n'apparaît que là où la donnée
+   * le justifie.
+   *
+   * Calculé une fois par jeu de points, pas au rendu ni au défilement :
+   * n villes donnent n²/2 paires, négligeable ici (moins d'une vingtaine de
+   * villes) mais inutile à refaire soixante fois par seconde.
+   */
+  const edges = useMemo(() => {
+    const out: { id: string; d: string; a: string; b: string }[] = [];
+    for (let i = 0; i < points.length; i += 1) {
+      const from = points[i];
+      const fromCompanies = new Set(
+        from.cluster.entries.map((e) => e.company.slug),
+      );
+      for (let j = i + 1; j < points.length; j += 1) {
+        const to = points[j];
+        const shared = to.cluster.entries.some((e) =>
+          fromCompanies.has(e.company.slug),
+        );
+        if (!shared) continue;
+        // Arc léger : deux traits droits entre villes voisines se
+        // superposeraient, et une carte n'est pas un graphe orthogonal.
+        const mx = (from.cx + to.cx) / 2;
+        const my = (from.cy + to.cy) / 2;
+        const dx = to.cx - from.cx;
+        const dy = to.cy - from.cy;
+        const curve = 0.16;
+        out.push({
+          id: `${from.cluster.place.id}-${to.cluster.place.id}`,
+          a: from.cluster.place.id,
+          b: to.cluster.place.id,
+          d: `M${from.cx},${from.cy} Q${mx - dy * curve},${my + dx * curve} ${to.cx},${to.cy}`,
+        });
+      }
+    }
+    return out;
+  }, [points]);
 
   const toLocal = useCallback((clientX: number, clientY: number) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -203,6 +331,7 @@ export function WorldMap({
 
   function onPointerDown(event: React.PointerEvent<SVGSVGElement>) {
     if (event.button !== 0) return;
+    justDragged.current = false;
     drag.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -212,7 +341,6 @@ export function WorldMap({
       moved: false,
     };
     setEased(false);
-    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function onPointerMove(event: React.PointerEvent<SVGSVGElement>) {
@@ -220,7 +348,14 @@ export function WorldMap({
     if (!d || d.pointerId !== event.pointerId) return;
     const dx = event.clientX - d.startX;
     const dy = event.clientY - d.startY;
-    if (Math.abs(dx) + Math.abs(dy) > 2) d.moved = true;
+    if (!d.moved) {
+      if (Math.abs(dx) + Math.abs(dy) <= DRAG_THRESHOLD) return;
+      /* Capturer dès l'appui retargette `pointerup` puis `click` sur le <svg> :
+         le moindre tremblement de souris faisait perdre le clic du marqueur.
+         On ne capture qu'une fois le glissé avéré. */
+      d.moved = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     setView((v) => clampView({ ...v, x: d.originX + dx, y: d.originY + dy }));
   }
 
@@ -229,6 +364,7 @@ export function WorldMap({
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
+      justDragged.current = drag.current.moved;
       drag.current = null;
     }
   }
@@ -278,25 +414,25 @@ export function WorldMap({
             ))}
           </g>
 
-          {/* Liens ténus vers le nœud actif : un réseau, pas des épingles. */}
-          {activePoint
-            ? points
-                .filter((p) => p !== activePoint)
-                .map((p) => (
-                  <line
-                    key={`link-${p.cluster.place.id}`}
-                    x1={activePoint.cx}
-                    y1={activePoint.cy}
-                    x2={p.cx}
-                    y2={p.cy}
-                    stroke="var(--color-accent)"
-                    strokeOpacity={0.16}
-                    strokeWidth={0.7 / view.k}
-                  />
-                ))
-            : null}
+          {/* Arêtes du réseau, sous les marqueurs. Discrètes au repos — pas
+              plus appuyées que les frontières — et rehaussées quand elles
+              touchent le nœud survolé ou sélectionné. */}
+          <g fill="none" vectorEffect="non-scaling-stroke">
+            {edges.map((edge) => {
+              const lit = active === edge.a || active === edge.b;
+              return (
+                <path
+                  key={edge.id}
+                  d={edge.d}
+                  stroke="var(--color-accent)"
+                  strokeOpacity={lit ? 0.55 : 0.28}
+                  strokeWidth={(lit ? 1.1 : 0.8) / view.k}
+                />
+              );
+            })}
+          </g>
 
-          {points.map(({ cluster, cx, cy, r, tone }, index) => {
+          {points.map(({ cluster, cx, cy, r, tone, isHub, isSingle }, index) => {
             const isActive = cluster.place.id === active;
             const isSelected = cluster.place.id === selectedPlaceId;
             const radius = r / view.k;
@@ -308,7 +444,8 @@ export function WorldMap({
                 onPointerEnter={() => setHovered(cluster.place.id)}
                 onPointerLeave={() => setHovered(null)}
                 onClick={() => {
-                  if (drag.current?.moved) return;
+                  // `drag.current` est déjà remis à null au `pointerup`.
+                  if (justDragged.current) return;
                   setFocusIndex(index);
                   onSelectPlace(isSelected ? null : cluster.place.id);
                 }}
@@ -324,20 +461,36 @@ export function WorldMap({
                     strokeWidth={1.2 / view.k}
                   />
                 ) : null}
-                <circle
-                  r={radius}
-                  fill={tone}
-                  fillOpacity={isActive ? 0.95 : 0.8}
-                  stroke="var(--color-base)"
-                  strokeWidth={1.2 / view.k}
-                />
+                {/* Duotone : le pôle est un disque cuivre plein qui respire
+                    lentement, la contribution isolée un anneau creux. La
+                    différence se lit à la forme, pas seulement au ton — et
+                    l'anneau qui grossissait puis disparaissait (le « ping »)
+                    disparaît avec le reste du vocabulaire décoratif. */}
+                {isSingle ? (
+                  <circle
+                    r={radius}
+                    fill="none"
+                    stroke={tone}
+                    strokeWidth={1.5 / view.k}
+                  />
+                ) : (
+                  <circle
+                    className={isHub ? "marker-breathe" : undefined}
+                    r={radius}
+                    fill={tone}
+                    fillOpacity={isActive ? 1 : 0.9}
+                    stroke="var(--color-base)"
+                    strokeWidth={1.2 / view.k}
+                  />
+                )}
                 {cluster.entries.length > 1 ? (
                   <text
                     y={radius * 0.36}
                     textAnchor="middle"
                     fontSize={(r * 0.8) / view.k}
-                    fontWeight={600}
-                    fill="var(--color-base)"
+                    fontWeight={500}
+                    fontFamily="var(--font-mono)"
+                    fill="var(--color-on-accent)"
                     pointerEvents="none"
                   >
                     {cluster.entries.length}

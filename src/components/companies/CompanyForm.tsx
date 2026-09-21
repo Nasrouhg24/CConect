@@ -9,8 +9,10 @@ import {
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { Button, inputClass, labelClass, textareaClass } from "@/components/ui";
 import { normalizeCompanyName } from "@/lib/company-name";
+import { domainFromWebsite } from "@/lib/company-domain";
 import { INDUSTRIES, INDUSTRY_LABELS } from "@/lib/labels";
 import type { Company, Place } from "@/lib/types";
+import { buttonClass } from "@/components/ui/button";
 
 /**
  * Création d'une fiche entreprise.
@@ -35,6 +37,10 @@ export function CompanyForm({
   initialName?: string;
 }) {
   const [name, setName] = useState(initialName);
+  /* Le site est tenu en état pour une seule raison : il donne le domaine, et le
+     domaine donne le logo. L'aperçu se met donc à jour à la frappe, et le
+     membre voit avant d'enregistrer ce que sa fiche affichera. */
+  const [website, setWebsite] = useState("");
   const [state, formAction, pending] = useActionState<
     CompanyFormResult | null,
     FormData
@@ -46,13 +52,14 @@ export function CompanyForm({
       ? companies.find((c) => c.normalizedName === canonical)
       : undefined;
 
+  const domain = domainFromWebsite(website);
   const err = state?.fieldErrors ?? {};
 
   return (
     <form action={formAction} className="space-y-5">
       <div className="flex items-end gap-3">
         <span className="mb-0.5">
-          <CompanyLogo company={{ name: name || "?", logoUrl: null }} size="lg" />
+          <CompanyLogo name={name || "?"} domain={domain} size="lg" />
         </span>
         <label className="block min-w-0 flex-1">
           <span className={labelClass}>Nom</span>
@@ -80,7 +87,7 @@ export function CompanyForm({
           </p>
           <Link
             href={`/companies/${duplicate.slug}`}
-            className="shrink-0 rounded-sm border border-border px-2.5 py-1.5 text-meta text-text transition-colors hover:bg-surface-hover"
+            className={buttonClass({ size: "sm", className: "text-meta font-normal" })}
           >
             Ouvrir
           </Link>
@@ -130,11 +137,21 @@ export function CompanyForm({
             <input
               name="website"
               type="url"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://exemple.com"
               className={`${inputClass} mt-1.5`}
             />
             {err.website ? (
               <span className="mt-1 block text-meta text-danger">{err.website}</span>
+            ) : null}
+            {/* Le domaine retenu est montré tel qu'il sera enregistré : c'est
+                lui qui sert de clé au logo, et une URL mal formée se voit ici
+                plutôt qu'après coup. */}
+            {domain ? (
+              <span className="mt-1 block font-mono text-meta text-text-faint">
+                → {domain}
+              </span>
             ) : null}
           </label>
 
@@ -200,7 +217,7 @@ export function CompanyForm({
         </div>
       ) : null}
 
-      <Button type="submit" variant="primary" disabled={pending || Boolean(duplicate)}>
+      <Button type="submit" variant="primary" loading={pending} disabled={Boolean(duplicate)}>
         {pending ? "Ajout…" : "Ajouter"}
       </Button>
     </form>

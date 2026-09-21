@@ -30,7 +30,7 @@ export function MapControls({
   return (
     <div
       data-shifted={shifted}
-      className="map-controls absolute bottom-5 z-20 flex flex-col items-stretch overflow-hidden rounded-sm border border-border bg-surface/95 backdrop-blur-sm transition-[right] duration-200"
+      className="map-controls absolute bottom-5 z-20 flex flex-col items-stretch overflow-hidden rounded-sm border border-border-strong bg-surface-raised shadow-[var(--shadow-panel)] transition-[right] duration-200"
     >
       <ControlButton label="Zoom avant" onClick={onZoomIn} disabled={!canZoomIn}>
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
@@ -106,7 +106,7 @@ function ControlButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`grid h-9 w-9 place-items-center text-text-muted transition-colors duration-150 hover:bg-surface-hover hover:text-text active:bg-accent-soft active:text-accent disabled:pointer-events-none disabled:text-text-faint/40 ${className}`}
+      className={`grid h-9 w-9 place-items-center text-text-muted transition-colors duration-150 enabled:hover:bg-surface-hover enabled:hover:text-text enabled:active:bg-surface-pressed disabled:cursor-not-allowed disabled:text-text-faint/40 ${className}`}
     >
       {children}
     </button>

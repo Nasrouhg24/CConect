@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { CAMPUS_LABELS, EXPERIENCE_KIND_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { contactDisplayName, type Entry } from "@/lib/types";
+import { buttonClass } from "@/components/ui/button";
 
 type Reason =
   | "internship"
@@ -196,7 +197,7 @@ export function ContactModal({
             {mailto ? (
               <a
                 href={mailto}
-                className="inline-flex h-8 items-center rounded-sm bg-accent px-3 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
+                className={buttonClass({ variant: "primary", size: "sm" })}
               >
                 Ouvrir dans Outlook
               </a>
@@ -205,7 +206,7 @@ export function ContactModal({
                 href={member.linkedinUrl}
                 target="_blank"
                 rel="noopener noreferrer nofollow"
-                className="inline-flex h-8 items-center rounded-sm bg-accent px-3 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
+                className={buttonClass({ variant: "primary", size: "sm" })}
               >
                 Contacter sur LinkedIn
               </a>

@@ -10,7 +10,7 @@ import { LoadingRegion, Skeleton } from "@/components/ui/feedback";
 export default function CompanyLoading() {
   return (
     <LoadingRegion label="Chargement de la fiche entreprise">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-content px-4 py-10 sm:px-6">
         <div className="mb-10 flex flex-wrap items-start gap-5 border-b border-border pb-8">
           <Skeleton className="h-[72px] w-[72px] rounded-md" />
           <div className="min-w-0 flex-1 space-y-3">

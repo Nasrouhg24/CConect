@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { buttonClass } from "./button";
 
 /**
  * États vides, de chargement et d'erreur.
@@ -36,7 +37,7 @@ export function EmptyState({
       {action ? (
         <Link
           href={action.href}
-          className="mt-5 inline-block rounded-sm bg-accent px-4 py-2 text-list font-medium text-on-accent transition-colors hover:bg-accent-hover"
+          className={buttonClass({ variant: "primary", className: "mt-5 text-list" })}
         >
           {action.label}
         </Link>

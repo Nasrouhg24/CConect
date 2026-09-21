@@ -3,59 +3,133 @@
 /* ------------------------------------------------------------------ *
  * CConnect — tokens de design
  * Documentation et règles d'usage : docs/DESIGN_SYSTEM.md
- * Une seule couleur d'accent, une échelle de neutres, trois couleurs
- * sémantiques. Tout le reste est du neutre.
+ *
+ * « Le Registre » — papier, encre, index.
+ *
+ * CConnect n'est pas un produit qu'on vend : c'est un annuaire interne
+ * qu'on consulte. Le système part donc d'un document imprimé, pas d'une
+ * page d'atterrissage. Deux encres sur un papier, des filets pour
+ * structurer, du monospace pour tout ce qui est une donnée.
+ *
+ * Les *noms* de tokens ne changent pas : c'est ce qui permet de reteinter
+ * les vingt écrans sans réécrire une classe utilitaire.
  * ------------------------------------------------------------------ */
 
 @theme {
-  /* Neutres — du fond le plus profond au texte le plus clair */
-  --color-base: #0a0e13;
-  --color-surface: #10151c;
-  --color-surface-raised: #161c25;
-  --color-surface-hover: #1c232e;
-  --color-border: #222b36;
-  --color-border-strong: #2f3a48;
-  --color-text: #e8edf4;
-  --color-text-muted: #98a5b6;
-  --color-text-faint: #6b7888;
+  /* ---- Papier ------------------------------------------------------ *
+   * Ivoire chaud, jamais blanc pur : le blanc pur est réservé aux fiches
+   * posées dessus, ce qui donne les trois niveaux sans une seule ombre. */
+  --color-base: #f5f2ea;
+  --color-surface: #faf8f2;
+  --color-surface-raised: #ffffff;
+  --color-surface-hover: #ebe7dc;
+  /* Appui : un cran sous le survol, pour qu'un clic se sente sans bouger. */
+  --color-surface-pressed: #e2ddd0;
 
-  /* Accent unique */
-  --color-accent: #2a9d8f;
-  --color-accent-hover: #33b5a5;
-  --color-accent-pressed: #22857a;
-  --color-accent-soft: #14322f;
-  --color-on-accent: #04140f;
+  /* ---- Encre ------------------------------------------------------- *
+   * Un graphite chaud et deux gris chauds. Chaque palier est mesuré contre
+   * le papier (#f5f2ea), pas estimé :
+   *   text          16,1:1  texte courant
+   *   text-muted     5,9:1  prose secondaire
+   *   text-faint     4,8:1  libellés, compteurs, liens de nav — au-dessus
+   *                         de 4,5:1 parce qu'ils portent de l'information
+   *   border-strong  3,3:1  contour d'un élément interactif (WCAG 1.4.11)
+   *   border           —    filet décoratif uniquement
+   *
+   * La charte demande #77746c pour le texte secondaire : mesuré, il tombe à
+   * 4,2:1 sur ce papier, sous le seuil de lecture. Les deux paliers gardent
+   * la même température et descendent d'un cran, ce qui ne se voit pas à
+   * l'oeil et se lit à la mesure.                                        */
+  --color-text: #171716;
+  --color-text-muted: #5f5c56;
+  --color-text-faint: #6e6b64;
+  --color-border: #d8d4ca;
+  --color-border-strong: #8a857a;
 
-  /* Sémantique — usage strictement réservé aux états */
-  --color-success: #4c9a72;
-  --color-warning: #cf9445;
-  --color-danger: #c65f4d;
+  /* ---- Vert -------------------------------------------------------- *
+   * La seconde encre, eucalyptus profond. Elle marque ce qui est *là* : une
+   * action qu'on peut faire, une ville couverte, un noeud relié. 5,8:1 sur
+   * le papier, 5,9:1 en papier-sur-vert — lisible dans les deux sens.
+   *
+   * Elle ne porte jamais seule le sens d'« interactif » : un lien est
+   * souligné, un bouton a une forme. La couleur confirme, elle n'informe
+   * pas (WCAG 1.4.1).                                                   */
+  --color-accent: #176b52;
+  --color-accent-hover: #11543f;
+  --color-accent-pressed: #0d4132;
+  --color-accent-soft: rgb(23 107 82 / 0.1);
+  --color-accent-border: rgb(23 107 82 / 0.32);
+  --color-on-accent: #f7f5f0;
 
-  /* Carte — mêmes familles que l'interface, pour que le fond de carte ne
-     paraisse pas collé sur un thème étranger. */
-  --color-map-ocean: #080d13;
-  --color-map-land: #19222d;
-  --color-map-border: #2a3644;
+  /* ---- Brique ------------------------------------------------------ *
+   * La troisième encre, et la dernière. Elle marque ce qui *manque* ou ce
+   * qui casse. Deux encres de statut suffisent : vert = présent, brique =
+   * absent. Tout le reste est du neutre.                                */
+  --color-success: #176b52;
+  --color-success-soft: rgb(23 107 82 / 0.1);
+  --color-warning: #8a5a14;
+  --color-danger: #a8442a;
+  --color-danger-soft: rgb(168 68 42 / 0.09);
 
-  /* Densité des marqueurs : un seul dégradé, pas une palette */
-  --color-node-1: #64768a;
-  --color-node-2: #3c7c78;
-  --color-node-3: #2a9d8f;
+  /* ---- Carte gravée ------------------------------------------------ *
+   * La mer est le papier lui-même ; la terre est une trame à peine plus
+   * dense, tenue par son filet. C'est une carte imprimée, pas un fond
+   * d'écran.                                                            */
+  --color-map-ocean: #f5f2ea;
+  --color-map-land: #e6e1d4;
+  --color-map-border: #c6bfae;
 
-  /* Rayons — trois valeurs, pas plus */
+  /* Marqueurs : le vert plein signale le pôle, l'encre pâle le point isolé. */
+  --color-node-1: rgb(23 23 22 / 0.34);
+  --color-node-2: #5e8a74;
+  --color-node-3: #176b52;
+
+  /* ---- Colonne de contenu ------------------------------------------ *
+   * Une seule largeur pour tout le site, écrite une fois ici et consommée
+   * partout via `max-w-content`. Les pages calaient leur contenu dans une
+   * sous-colonne étroite à l'intérieur du conteneur : sur un écran large, la
+   * marge devenait un vide à droite au lieu d'une respiration symétrique.
+   * La mesure de lecture se tient désormais bloc par bloc (un paragraphe
+   * garde `max-w-xl`), jamais en rétrécissant la colonne entière.         */
+  --container-content: 76rem;
+
+  /* Colonne étroite, pour un écran dont le contenu est un **formulaire** :
+     Ajouter, Profil, Connexion. Elle reste centrée — c'est une mesure de
+     saisie confortable, pas un contenu calé à gauche. */
+  --container-form: 48rem;
+
+  /* ---- Rayons ------------------------------------------------------ *
+   * Un registre a des angles nets, pas des angles vifs. 3 px lisait comme un
+   * gabarit non fini ; 5 px sur un contrôle reste droit à l'oeil et se lit
+   * comme un objet dessiné. Jamais de pilule.
+   *
+   * L'échelle se lit par rôle, et il n'y a pas de valeur hors échelle :
+   *   xs  3px  micro-élément (pastille d'initiale, bouton de retrait, segment
+   *            logé dans un groupe)
+   *   sm  5px  CONTRÔLE : bouton, champ, barre de recherche, puce, entrée de
+   *            menu, onglet de navigation
+   *   md  7px  CONTENEUR : panneau, carte, menu, modale, encart
+   *   lg 10px  feuille mobile (seul le haut est arrondi)
+   * Un élément logé dans un autre prend le palier du dessous : le rayon
+   * intérieur suit le rayon extérieur moins le retrait.
+   * `rounded-full` reste réservé aux points et aux barres de jauge.       */
   --radius-xs: 3px;
   --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
 
-  /* Ombres — discrètes, jamais colorées */
-  --shadow-panel: 0 12px 32px -12px rgb(0 0 0 / 0.65);
-  --shadow-overlay: 0 20px 48px -16px rgb(0 0 0 / 0.75);
+  /* ---- Ombres ------------------------------------------------------ *
+   * Presque rien. La profondeur vient des filets et des trois niveaux de
+   * papier ; l'ombre n'existe que pour ce qui flotte *vraiment* au-dessus
+   * du document (menu ouvert, boîte de dialogue).                        */
+  --shadow-panel: 0 1px 2px rgb(23 22 20 / 0.07);
+  --shadow-overlay:
+    0 10px 28px -10px rgb(23 22 20 / 0.2), 0 1px 3px rgb(23 22 20 / 0.1);
 
-  /* Échelle typographique — un rôle par palier, jamais une taille brute.
-     Les valeurs reprennent au pixel près celles qui étaient écrites en dur :
-     nommer l'échelle ne devait rien déplacer à l'écran. L'interligne fait
-     partie du palier ; on ne le remet à la main que pour le serrer. */
+  /* ---- Échelle typographique --------------------------------------- *
+   * Un rôle par palier, jamais une taille brute. L'interligne fait partie
+   * du palier ; on ne le reprend à la main que pour le serrer.           */
   --text-micro: 10px;
   --text-micro--line-height: 1.4;
   --text-label: 11px;
@@ -80,43 +154,53 @@
   --text-title--line-height: 1.2;
   --text-metric-lg: 28px;
   --text-metric-lg--line-height: 1;
-  --text-hero: 40px;
+  --text-hero: 34px;
   --text-hero--line-height: 1.1;
-  --text-hero-lg: 46px;
-  --text-hero-lg--line-height: 1.1;
+  --text-hero-lg: 50px;
+  --text-hero-lg--line-height: 1.04;
 
+  /* ---- Deux voix, pas trois ---------------------------------------- *
+   * Geist porte tout ce qui est une *phrase*. C'est une grotesque
+   * contemporaine à l'oeil ouvert, moins uniforme qu'Inter dans ses formes
+   * (a, g, R) : la page garde un caractère sans devenir un gabarit.
+   *
+   * Geist Mono porte tout ce qui est une *donnée* — chiffres, villes,
+   * promos, libellés de champ, numéros d'étape. La distinction est une
+   * règle de lecture, pas un effet : si c'est en chasse fixe, ça vient de
+   * la base.
+   *
+   * `--font-display` reste défini (une vingtaine d'écrans l'utilisent) mais
+   * pointe sur la grotesque. Un seul token à rouvrir si la marque veut de
+   * nouveau une voix de titrage distincte.                                */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  /* Un seul éclairage, très bas en contraste : le haut de page respire sans
-     que ça devienne un dégradé décoratif. */
-  background:
-    radial-gradient(
-      120rem 40rem at 50% -18rem,
-      color-mix(in oklab, var(--color-surface-raised) 55%, transparent),
-      transparent 70%
-    ),
-    var(--color-base);
-  background-attachment: fixed;
+  background: var(--color-base);
   color: var(--color-text);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  background: color-mix(in oklab, var(--color-accent) 22%, transparent);
 }
 
-/* Anneau de focus unique pour toute l'application. */
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+/* Anneau de focus unique pour toute l'application.
+   Dans `@layer base` : hors couche, il battait tous les utilitaires, et un
+   composant qui remplace l'anneau (champ avec `focus:ring`, entrée de menu
+   surlignée) finissait avec les deux. */
+@layer base {
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 }
 
 .thin-scroll {
@@ -199,6 +283,10 @@ body {
     animation: none;
     opacity: 0.5;
   }
+  /* Un indicateur d'attente immobile ne dit plus rien : il ralentit. */
+  .animate-spin {
+    animation-duration: 2.4s;
+  }
   * {
     transition-duration: 1ms !important;
   }
@@ -222,5 +310,290 @@ body {
 @media (max-width: 767px) {
   .map-controls[data-shifted="true"] {
     display: none;
+  }
+}
+
+/* ================================================================== *
+ * MOTIFS — Le Registre
+ *
+ * Le vocabulaire de la page imprimée : le filet, le point de conduite, la
+ * note en marge, la colonne de chiffres. Chaque motif encode une relation
+ * réelle ; un effet qui ne dit rien n'entre pas ici.
+ *
+ * Écrit dans `@layer components` pour que les utilitaires Tailwind gardent
+ * le dernier mot sur la forme.
+ * ================================================================== */
+
+@layer components {
+  /* ---- Ligne d'index ----------------------------------------------- *
+   * Le motif central : un nom à gauche, un compte à droite, des points de
+   * conduite entre les deux. C'est la table des matières d'un annuaire, et
+   * c'est littéralement ce que la donnée est — une ville et son nombre de
+   * contributions. Remplace la grille de cartes et de pastilles.        */
+
+  .index-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.5rem 0;
+    text-align: left;
+  }
+
+  .index-row__leader {
+    flex: 1 1 auto;
+    min-width: 1.5rem;
+    /* Le filet se pose sur la ligne de base du texte, pas sous la boîte. */
+    transform: translateY(-0.28em);
+    border-bottom: 1px dotted var(--color-border-strong);
+    opacity: 0.55;
+  }
+
+  a.index-row:hover .index-row__leader,
+  a.index-row:focus-visible .index-row__leader {
+    opacity: 1;
+  }
+
+  a.index-row:hover .index-row__name {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ---- Colonnes à filets ------------------------------------------- *
+   * Remplace la liste verticale à puces colorées. Des colonnes de même
+   * poids séparées par un filet : le parallélisme se lit dans la grille au
+   * lieu d'être porté par un trait décoratif.
+   *
+   * Générique et non « étapes » : l'accueil s'en sert pour le mode d'emploi
+   * (numéroté) comme pour les garanties de confidentialité (nommées). Empilé
+   * sous 768 px, chaque cellule reprenant un filet horizontal.            */
+
+  .rule-cols {
+    display: grid;
+  }
+
+  .rule-col {
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  @media (min-width: 768px) {
+    .rule-cols {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    /* En tablette, une colonne fait ~230 px : 2 rem de retrait de chaque côté
+       n'y laisseraient que 166 px de texte. Le retrait ne s'ouvre qu'une fois
+       la place disponible. */
+    .rule-col {
+      padding: 1.5rem 1.25rem 0 1.25rem;
+      border-top: none;
+      border-left: 1px solid var(--color-border);
+    }
+
+    .rule-col:first-child {
+      padding-left: 0;
+      border-left: none;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .rule-col {
+      padding-right: 2rem;
+      padding-left: 2rem;
+    }
+
+    .rule-col:first-child {
+      padding-left: 0;
+    }
+  }
+
+  /* ---- Ligne de grand livre ---------------------------------------- *
+   * Une colonne de chiffres en chasse fixe, séparée par un filet, posée sur
+   * le papier. Pas de tuile, pas de cadre.                               */
+
+  .ledger {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (min-width: 640px) {
+    .ledger {
+      display: flex;
+    }
+  }
+
+  .ledger-cell {
+    flex: 1;
+    min-width: 0;
+    padding: 0.75rem 1rem 0.75rem 0;
+    border-right: 1px solid var(--color-border);
+  }
+
+  .ledger-cell:last-child {
+    border-right: none;
+    padding-right: 0;
+  }
+
+  /* Sur deux colonnes, c'est la cellule de droite qui ferme la ligne. */
+  @media (max-width: 639px) {
+    .ledger-cell:nth-child(2n) {
+      border-right: none;
+      padding-right: 0;
+    }
+    .ledger-cell {
+      padding-left: 0;
+    }
+    .ledger-cell:nth-child(2n) {
+      padding-left: 1rem;
+    }
+  }
+
+  /* ---- Monogramme -------------------------------------------------- *
+   * Une pastille d'encre sur papier : filet plein, fond crème, initiale en
+   * chasse fixe. Plus de partage diagonal — c'était un dégradé déguisé.  */
+
+  .monogram {
+    display: grid;
+    place-items: center;
+    flex: none;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-hover);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* Variante de marque : encre verte, pour le lockup et l'avatar. */
+  .monogram-invert {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent-border);
+    color: var(--color-accent);
+  }
+
+  /* ---- Chip à crochets --------------------------------------------- *
+   * Les parenthèses et crochets sont des caractères, pas des bordures :
+   * rien à aligner, rien à arrondir, et l'état actif se lit sans dépendre
+   * d'une couleur de fond.                                              */
+
+  .bchip {
+    font-family: var(--font-mono);
+    color: var(--color-text-faint);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .bchip::before {
+    content: "( ";
+  }
+
+  .bchip::after {
+    content: " )";
+  }
+
+  .bchip:hover {
+    color: var(--color-text);
+  }
+
+  .bchip[data-active="true"] {
+    color: var(--color-accent);
+  }
+
+  .bchip[data-active="true"]::before {
+    content: "[ ";
+    color: var(--color-accent);
+  }
+
+  .bchip[data-active="true"]::after {
+    content: " ]";
+    color: var(--color-accent);
+  }
+
+  /* ---- Blocs sémantiques ------------------------------------------- *
+   * Un tampon dans la marge plutôt qu'un aplat teinté : filet de 2 px à
+   * gauche, papier en dessous. Sur fond clair, l'aplat de couleur pâle se
+   * lit comme un champ désactivé — le filet, non.                       */
+
+  .semantic-block {
+    border-left: 2px solid var(--color-success);
+    background: var(--color-surface);
+    padding: 0.875rem 1.125rem;
+  }
+
+  /* Une lacune est un avertissement, pas une erreur : le filet reprend la
+     couleur du libellé qu'il accompagne (`text-warning`), sinon le bloc dit
+     deux choses différentes à la fois. */
+  .semantic-block--warn {
+    border-left-color: var(--color-warning);
+  }
+
+  /* ---- Aperçu du réseau (Couverture) ------------------------------- *
+   * Des filets, pas des faisceaux. Voir `components/home/NetworkPreview`.
+   * Le trait ne s'épaissit pas avec la zone de dessin (`non-scaling-stroke`) :
+   * l'aperçu est étiré en pourcentages, le filet reste d'un pixel.          */
+
+  .net-edge {
+    stroke: var(--color-border-strong);
+    stroke-opacity: 0.45;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+    transition:
+      stroke 150ms ease,
+      stroke-opacity 150ms ease;
+    animation: net-appear 700ms ease-out both;
+  }
+
+  .net-edge--cross {
+    stroke-dasharray: 2 4;
+    stroke-opacity: 0.35;
+  }
+
+  /* Les liens apparaissent une fois, l'un après l'autre, puis ne bougent plus. */
+  @keyframes net-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Survoler ou atteindre un nœud au clavier éclaire ses liens. */
+  .net:has([data-node="company"]:is(:hover, :focus-visible)) [data-edge~="company"],
+  .net:has([data-node="alumni"]:is(:hover, :focus-visible)) [data-edge~="alumni"],
+  .net:has([data-node="student"]:is(:hover, :focus-visible)) [data-edge~="student"],
+  .net:has([data-node="place"]:is(:hover, :focus-visible)) [data-edge~="place"] {
+    stroke: var(--color-accent);
+    stroke-opacity: 0.85;
+  }
+
+  /* ---- Respiration des pôles de la carte --------------------------- *
+   * Une opacité qui oscille, pas un anneau qui grossit.                 */
+
+  @keyframes marker-breathe {
+    0%,
+    100% {
+      opacity: 0.85;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .marker-breathe {
+    animation: marker-breathe 4s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .net-edge {
+    animation: none;
+  }
+
+  .marker-breathe {
+    animation: none;
+    opacity: 1;
   }
 }

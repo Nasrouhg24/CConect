@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { summarize } from "@/lib/entries";
-import { DOMAIN_LABELS, EXPERIENCE_KIND_LABELS } from "@/lib/labels";
-import { Button, DomainDot, Metric } from "@/components/ui";
+import { periodLabel, relationLabel } from "@/lib/career";
+import { DOMAIN_LABELS } from "@/lib/labels";
+import { personHref } from "@/lib/links";
+import { Button, DomainDot, IconButton, Metric } from "@/components/ui";
+import { CompanyLogo } from "@/components/CompanyLogo";
 import { ContactModal } from "./ContactModal";
 import { contactDisplayName, type Entry, type Place } from "@/lib/types";
 
@@ -36,23 +39,29 @@ export function PlaceDrawer({
       >
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div>
-            <p className="text-label uppercase tracking-[0.1em] text-text-faint">
-              {place.countryName}
+            {/* Le type du point est écrit, pas déduit : un panneau qui s'ouvre
+                sur « Paris » et un panneau qui s'ouvrirait sur « Google » ne
+                doivent pas se ressembler. Un mot en chasse fixe suffit — le
+                registre n'a pas besoin d'une pastille de couleur pour dire ce
+                qu'il montre. */}
+            <p className="font-mono text-label uppercase tracking-[0.12em] text-text-faint">
+              Ville · {place.countryName}
             </p>
             <h2 className="mt-0.5 text-subtitle text-text">
               {place.city}
             </h2>
           </div>
-          <button
-            type="button"
+          <IconButton
+            label="Fermer le panneau"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            aria-label="Fermer le panneau"
-            className="mt-1 grid h-7 w-7 place-items-center rounded-sm text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+            className="-mr-1.5"
           >
             <svg viewBox="0 0 14 14" className="h-3 w-3" aria-hidden>
               <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-          </button>
+          </IconButton>
         </header>
 
         <div className="thin-scroll flex-1 overflow-y-auto">
@@ -68,9 +77,13 @@ export function PlaceDrawer({
                 <li key={company.slug}>
                   <Link
                     href={`/companies/${company.slug}`}
-                    className="flex items-center justify-between rounded-sm px-2 py-1.5 -mx-2 text-list text-text transition-colors hover:bg-surface-hover"
+                    className="-mx-2 flex items-center gap-2.5 rounded-sm px-2 py-1.5 text-list text-text transition-colors hover:bg-surface-hover"
                   >
-                    <span className="truncate">{company.name}</span>
+                    {/* Le même composant que partout ailleurs : domaine →
+                        fournisseur → monogramme. La carte n'a pas sa propre
+                        logique de logo. */}
+                    <CompanyLogo company={company} size="sm" />
+                    <span className="min-w-0 flex-1 truncate">{company.name}</span>
                     <span className="font-mono text-label tabular-nums text-text-faint">
                       {count}
                     </span>
@@ -116,13 +129,16 @@ export function PlaceDrawer({
                   <p className="mt-0.5 text-meta text-text-faint">
                     {entry.company.name}
                     {entry.experienceKind
-                      ? ` · ${EXPERIENCE_KIND_LABELS[entry.experienceKind]} ${entry.year}`
+                      ? ` · ${relationLabel(entry)} · ${periodLabel(entry)}`
                       : " · contact"}
                   </p>
                   <div className="mt-1.5 flex items-center gap-3">
-                    <span className="text-meta text-text-muted">
+                    <Link
+                      href={personHref(entry.author.id)}
+                      className="text-meta text-text-muted underline-offset-2 transition-colors hover:text-text hover:underline"
+                    >
                       {entry.author.fullName}
-                    </span>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setContactTarget(entry)}

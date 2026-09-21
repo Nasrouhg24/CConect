@@ -12,6 +12,7 @@ import {
 } from "@/lib/repository";
 import type { Company } from "@/lib/types";
 import {
+  careerFieldsFromInput,
   contactInputSchema,
   experienceInputSchema,
   findPrivateContactDetails,
@@ -40,6 +41,8 @@ function revalidateAll(companySlug?: string) {
   revalidatePath("/companies");
   revalidatePath("/stats");
   revalidatePath("/profile");
+  revalidatePath("/people");
+  revalidatePath("/advisor");
   if (companySlug) revalidatePath(`/companies/${companySlug}`);
 }
 
@@ -66,6 +69,7 @@ async function resolveCompany(
     {
       name,
       website: null,
+      domain: null,
       industry: "other",
       description: null,
       linkedinUrl: null,
@@ -150,9 +154,9 @@ export async function submitContribution(
           placeId: input.placeId,
           domain: input.domain,
           kind: input.kind,
-          year: input.year,
           title: input.title,
           summary: input.summary?.trim() || null,
+          ...careerFieldsFromInput(input),
         },
         member,
       );

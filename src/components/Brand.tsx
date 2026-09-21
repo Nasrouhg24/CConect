@@ -23,11 +23,11 @@ export function BrandMark({ className = "" }: { className?: string }) {
 export function BrandLockup({ compact = false }: { compact?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-sm border border-border bg-surface-raised text-accent">
+      <span className="monogram monogram-invert h-8 w-8 rounded-sm">
         <BrandMark className="h-4 w-4" />
       </span>
       <span className="flex flex-col leading-none">
-        <span className="text-lead font-semibold tracking-tight text-text">
+        <span className="font-display text-lead font-medium tracking-tight text-text">
           CConnect
         </span>
         {compact ? null : (

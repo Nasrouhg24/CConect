@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { buildContentSecurityPolicy } from "./lib/csp";
+import { CONSENT_PATH, POLICY_VERSION } from "./lib/legal";
 import { AUTH_COOKIE_OPTIONS } from "./lib/supabase/cookie-options";
 
 /**
@@ -19,6 +20,9 @@ import { AUTH_COOKIE_OPTIONS } from "./lib/supabase/cookie-options";
 const PROTECTED = [
   "/network",
   "/companies",
+  "/people",
+  "/advisor",
+  "/terminal",
   "/contribute",
   "/stats",
   "/profile",
@@ -38,6 +42,10 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
+  // Mode démo : ni session, ni blocage des politiques. Ce n'est pas un trou,
+  // c'est l'absence de base — il n'y a aucun consentement à enregistrer, donc
+  // rien à exiger. L'écran d'acceptation reste visitable (`/legal/accepter`)
+  // pour qu'on puisse le voir tourner sans backend.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
@@ -76,6 +84,36 @@ export async function proxy(request: NextRequest) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", request.nextUrl.pathname);
     return withCsp(NextResponse.redirect(login));
+  }
+
+  /**
+   * Blocage tant que les politiques en vigueur ne sont pas acceptées.
+   *
+   * Il vit ici, et non dans la coquille : un layout racine n'est pas re-rendu
+   * lors d'une navigation côté client, si bien qu'un écran de blocage posé là
+   * laisse passer le premier clic sur un lien interne. Le proxy, lui, voit
+   * chaque requête — y compris celles que React émet pour une navigation
+   * douce, et les envois de Server Action, qui repassent par le même chemin.
+   *
+   * Seules les routes déjà protégées sont concernées : `/legal` reste
+   * accessible, sinon le membre ne pourrait pas lire ce qu'on lui demande
+   * d'accepter, et `/login` reste ouvert.
+   *
+   * Un profil absent n'est pas bloqué : c'est l'inscription qui recueille
+   * l'acceptation, et elle ne peut pas avoir lieu derrière un blocage.
+   */
+  if (needsAuth && user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("policy_version")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (data && data.policy_version !== POLICY_VERSION) {
+      const gate = new URL(CONSENT_PATH, request.url);
+      gate.searchParams.set("next", request.nextUrl.pathname);
+      return withCsp(NextResponse.redirect(gate));
+    }
   }
 
   return withCsp(response);

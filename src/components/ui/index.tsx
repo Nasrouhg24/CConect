@@ -1,6 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { buttonClass, type ButtonSize, type ButtonVariant } from "./button";
 import { DOMAIN_COLORS, DOMAIN_LABELS } from "@/lib/labels";
 import type { Domain } from "@/lib/types";
 
@@ -13,62 +14,76 @@ import type { Domain } from "@/lib/types";
  * Voir docs/DESIGN_SYSTEM.md.
  */
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-type ButtonSize = "sm" | "md";
-
-const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    "bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-pressed",
-  secondary:
-    "border border-border-strong bg-surface-raised text-text hover:bg-surface-hover hover:border-border-strong",
-  ghost: "text-text-muted hover:bg-surface-hover hover:text-text",
-  danger: "border border-danger/40 text-danger hover:bg-danger/10",
-};
-
-const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-list",
-  md: "h-9 px-4 text-body",
-};
-
 export function Button({
   variant = "secondary",
   size = "md",
+  loading = false,
   className = "",
+  disabled,
+  children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** Action en cours : le bouton se verrouille et l'annonce. */
+  loading?: boolean;
 }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-sm font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45 ${BUTTON_VARIANTS[variant]} ${BUTTON_SIZES[size]} ${className}`}
+      className={buttonClass({ variant, size, className })}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
+    >
+      {loading ? <Spinner /> : null}
+      {children}
+    </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-current border-r-transparent opacity-80"
     />
   );
 }
 
-/** Bouton carré à icône — carte, barres d'outils. Toujours étiqueté. */
+export { buttonClass };
+
+/**
+ * Bouton carré à icône — carte, barres d'outils, fermeture de panneau.
+ * Toujours étiqueté. `outline` pose un contour de contrôle, `ghost` ne se
+ * révèle qu'au survol (fermeture, action secondaire logée dans un en-tête).
+ */
 export function IconButton({
   label,
   className = "",
   active = false,
+  size = "md",
+  variant = "outline",
   children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   label: string;
   active?: boolean;
+  size?: "sm" | "md";
+  variant?: "outline" | "ghost";
 }) {
+  const tone = active
+    ? "border-accent-border bg-accent-soft text-accent"
+    : variant === "outline"
+      ? "border-border-strong bg-surface-raised text-text-muted enabled:hover:bg-surface-hover enabled:hover:text-text enabled:active:bg-surface-pressed"
+      : "border-transparent text-text-muted enabled:hover:bg-surface-hover enabled:hover:text-text enabled:active:bg-surface-pressed";
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      aria-pressed={props["aria-pressed"] ?? undefined}
-      className={`grid h-9 w-9 place-items-center rounded-sm border transition-colors duration-150 ${
-        active
-          ? "border-accent/60 bg-accent-soft text-accent"
-          : "border-border bg-surface/90 text-text-muted hover:border-border-strong hover:bg-surface-hover hover:text-text"
-      } ${className}`}
+      className={`grid shrink-0 place-items-center rounded-sm border transition-[background-color,border-color,color] duration-150 disabled:cursor-not-allowed disabled:opacity-45 ${
+        size === "sm" ? "h-8 w-8" : "h-9 w-9"
+      } ${tone} ${className}`}
       {...props}
     >
       {children}
@@ -163,16 +178,88 @@ export function Metric({
   );
 }
 
-export const inputClass =
-  "h-9 w-full rounded-sm border border-border bg-surface px-3 text-body text-text placeholder:text-text-faint transition-colors focus:border-accent focus:outline-none";
+/**
+ * Option d'un choix exclusif — une ligne, pas une carte.
+ *
+ * Un vrai `<input type="radio">` masqué : les flèches, l'espace et la
+ * soumission de formulaire fonctionnent sans code. L'état choisi se lit par
+ * trois indices à la fois — filet vert, fond teinté, point rempli — pour que
+ * la couleur ne porte jamais seule l'information.
+ */
+export function ChoiceOption({
+  name,
+  value,
+  label,
+  description,
+  checked,
+  onChange,
+  required,
+}: {
+  name: string;
+  value: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: () => void;
+  required?: boolean;
+}) {
+  return (
+    <label className="group flex cursor-pointer items-center gap-3.5 rounded-sm border border-border-strong bg-surface-raised px-4 py-3.5 transition-[background-color,border-color] duration-150 hover:bg-surface has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent">
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        required={required}
+        checked={checked}
+        onChange={onChange}
+        className="peer sr-only"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-body font-medium text-text">{label}</span>
+        <span className="mt-0.5 block text-list text-text-muted">{description}</span>
+      </span>
+      <span
+        aria-hidden
+        className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-border-strong bg-surface-raised transition-colors duration-150 peer-checked:border-accent"
+      >
+        <span className="h-2 w-2 scale-0 rounded-full bg-accent transition-transform duration-150 group-has-[:checked]:scale-100" />
+      </span>
+    </label>
+  );
+}
 
-export const textareaClass =
-  "w-full rounded-sm border border-border bg-surface px-3 py-2 text-body text-text placeholder:text-text-faint transition-colors focus:border-accent focus:outline-none";
+/**
+ * Où l'on est, ce qui reste. Une ligne en chasse fixe, pas une frise. Une
+ * étape franchie peut afficher ce qui y a été choisi à la place de son nom.
+ */
+export function StepProgress({
+  steps,
+  current,
+}: {
+  steps: readonly string[];
+  current: number;
+}) {
+  return (
+    <ol className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-label text-text-faint">
+      {steps.map((label, i) => (
+        <li key={i} className="flex items-center gap-3">
+          {i > 0 ? <span aria-hidden className="h-px w-8 bg-border-strong/50" /> : null}
+          <span
+            aria-current={i === current ? "step" : undefined}
+            className={i === current ? "text-text" : undefined}
+          >
+            {String(i + 1).padStart(2, "0")} {label}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
-export const selectClass = `${inputClass} appearance-none bg-[length:10px] bg-[right_0.6rem_center] bg-no-repeat pr-8`;
-
-export const labelClass =
-  "block text-label font-medium uppercase tracking-[0.08em] text-text-faint";
-
-export const panelClass =
-  "rounded-md border border-border bg-surface-raised shadow-[var(--shadow-panel)]";
+export {
+  inputClass,
+  labelClass,
+  panelClass,
+  selectClass,
+  textareaClass,
+} from "./fields";

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { Button } from "@/components/ui";
+import { buttonClass } from "@/components/ui/button";
 
 /**
  * Écran d'erreur d'une route.
@@ -50,7 +51,7 @@ export default function RouteError({
           </Button>
           <Link
             href="/network"
-            className="inline-flex h-9 items-center rounded-sm border border-border-strong bg-surface-raised px-4 text-body font-medium text-text transition-colors hover:bg-surface-hover"
+            className={buttonClass()}
           >
             Retour à la carte
           </Link>

@@ -1,11 +1,41 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
+import { CookieNotice } from "@/components/legal/CookieNotice";
 import { SiteHeader } from "@/components/SiteHeader";
-import { getCurrentMember, isDemoMode } from "@/lib/repository";
+import { NOTICE_COOKIE, POLICY_VERSION } from "@/lib/legal";
+import { getCurrentMember, getProfilePhotoVersion, isDemoMode } from "@/lib/repository";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+/**
+ * Deux voix, une par nature de contenu.
+ *
+ * Geist porte tout ce qui est une *phrase* — titres compris. C'est une
+ * grotesque contemporaine dont les formes (a, g, R, chiffres) restent
+ * dessinées : elle échappe au gris uniforme d'Inter sans devenir une voix
+ * de marque bruyante.
+ *
+ * Geist Mono porte tout ce qui est une *donnée* : chiffres, villes, promos,
+ * numéros d'étape, libellés de champ. La règle se lit à l'oeil nu — si c'est
+ * en chasse fixe, ça vient de la base.
+ *
+ * Chargées par `next/font` et non par un `<link>` vers Google Fonts : les
+ * fichiers sont alors auto-hébergés et la métrique de repli est calculée, ce
+ * qui supprime le décalage de mise en page au chargement.
+ */
+const body = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
+
+const mono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+});
 
 /**
  * Rendu dynamique explicite.
@@ -38,11 +68,24 @@ export const metadata: Metadata = {
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const member = await getCurrentMember();
+  const photoVersion = member ? await getProfilePhotoVersion(member.id) : null;
+
+  /*
+   * Le bandeau cookies est décidé côté serveur pour qu'il ne clignote pas chez
+   * ceux qui l'ont déjà lu.
+   *
+   * Le blocage des politiques, lui, n'est *pas* ici : un layout racine n'est
+   * pas re-rendu lors d'une navigation côté client, il laisserait donc passer
+   * le premier lien cliqué. Il vit dans `src/proxy.ts`, qui voit chaque
+   * requête.
+   */
+  const noticeRead =
+    (await cookies()).get(NOTICE_COOKIE)?.value === POLICY_VERSION;
 
   return (
     <html
       lang="fr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      className={`${body.variable} ${mono.variable} h-full`}
     >
       <body className="flex h-full flex-col overflow-hidden font-sans">
         {isDemoMode ? (
@@ -51,11 +94,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           </p>
         ) : null}
 
-        <SiteHeader member={member} />
+        <SiteHeader member={member} photoVersion={photoVersion} />
 
         <main className="thin-scroll flex flex-1 flex-col overflow-y-auto">
           {children}
         </main>
+
+        {noticeRead ? null : <CookieNotice />}
       </body>
     </html>
   );

@@ -10,6 +10,7 @@ import {
   updateExperience,
 } from "@/lib/repository";
 import {
+  careerFieldsFromInput,
   experienceInputSchema,
   findPrivateContactDetails,
 } from "@/lib/validation";
@@ -25,6 +26,8 @@ function revalidateAll(companySlug?: string) {
   revalidatePath("/companies");
   revalidatePath("/stats");
   revalidatePath("/profile");
+  revalidatePath("/people");
+  revalidatePath("/advisor");
   revalidatePath("/");
   if (companySlug) revalidatePath(`/companies/${companySlug}`);
 }
@@ -92,9 +95,9 @@ export async function editExperience(
         placeId: input.placeId,
         domain: input.domain,
         kind: input.kind,
-        year: input.year,
         title: input.title,
         summary: input.summary?.trim() || null,
+        ...careerFieldsFromInput(input),
       },
       member,
     );

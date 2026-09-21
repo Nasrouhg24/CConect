@@ -1,106 +1,124 @@
 import Link from "next/link";
-import { BrandMark } from "@/components/Brand";
+import { HomeMap } from "@/components/home/HomeMap";
+import { JoinSection } from "@/components/home/JoinSection";
 import { SiteFooter } from "@/components/PageShell";
-import { getNetworkStats } from "@/lib/repository";
+import { buttonClass } from "@/components/ui/button";
+import { getCurrentMember, getPlaces } from "@/lib/repository";
+import type { Place } from "@/lib/types";
+
+const DESTINATIONS = [
+  {
+    href: "/network",
+    title: "Carte",
+    body: "Les villes, les entreprises et les personnes du réseau, là où elles sont.",
+  },
+  {
+    href: "/companies",
+    title: "Entreprises",
+    body: "Chaque fiche réunit les contacts et les expériences d'une entreprise.",
+  },
+  {
+    href: "/stats",
+    title: "Couverture",
+    body: "Les domaines où personne n'est encore passé.",
+  },
+] as const;
 
 /**
- * Accueil.
+ * Accueil — une page d'exploration, pas un tableau de bord.
  *
- * Version précédente : un titre en deux temps, un paragraphe de quatre
- * lignes, trois encarts de prose et trois « ce que CConnect ne fera jamais »
- * — soit près de deux cents mots avant le premier clic utile. Un étudiant qui
- * cherche un stage ne lit pas une page de présentation : il cherche une ville
- * et un nom.
+ * Trois temps, et pas un chiffre :
  *
- * Ce qui reste : la promesse en une phrase, les deux actions, les chiffres.
- * Les règles de confidentialité gardent leur ancre (le pied de page y renvoie)
- * mais tiennent en trois lignes — le détail est dans docs/SECURITY.md, à sa
- * place, pour qui le cherche.
+ *   1. **Couverture** : la promesse, la recherche, et la carte comme image.
+ *      La carte est ce que le produit *est* ; un décor abstrait ne disait
+ *      rien qu'elle ne dise mieux.
+ *   2. **Explorer** : les destinations, une ligne chacune.
+ *   3. **Rejoindre** — ou, pour un membre déjà connecté, **contribuer** : la
+ *      seule action qui fait grandir le réseau.
+ *
+ * Les lieux viennent de la table de référence, la plus légère de la base.
+ * Si elle ne répond pas, l'accueil s'affiche quand même, carte sans points.
  */
 export default async function HomePage() {
-  const stats = await getNetworkStats();
-
-  const figures = [
-    { value: stats.companies, label: "entreprises" },
-    { value: stats.cities, label: "villes" },
-    { value: stats.contacts, label: "contacts" },
-    { value: stats.experiences, label: "expériences" },
-  ];
+  const [member, places] = await Promise.all([
+    getCurrentMember(),
+    getPlaces().catch((): Place[] => []),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <section className="py-16 sm:py-20">
-          <p className="mb-5 inline-flex items-center gap-2 text-label uppercase tracking-[0.12em] text-text-faint">
-            <BrandMark className="h-3.5 w-3.5 text-accent" />
-            College of Computing · UM6P
+      {/* ---- 1. Couverture ---------------------------------------------- */}
+      <section className="mx-auto grid w-full max-w-content items-center gap-12 px-4 pb-16 pt-14 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16 lg:pb-24 lg:pt-24">
+        <div>
+          <p className="flex items-center gap-2.5 font-mono text-label uppercase tracking-[0.14em] text-text-faint">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+            CConnect · College of Computing
           </p>
 
-          <h1 className="max-w-2xl text-hero font-medium tracking-tight text-text sm:text-hero-lg">
-            Quelqu&apos;un de la promo y a déjà fait un stage.
+          <h1 className="mt-6 text-hero font-medium leading-[1.06] tracking-[-0.025em] text-text sm:text-hero-lg">
+            Quelqu&apos;un est déjà passé par là.
           </h1>
-          <p className="mt-4 max-w-md text-lead text-text-muted">
-            Trouve qui, et parle-lui.
+
+          <p className="mt-5 max-w-[32rem] text-lead text-text-muted">
+            Retrouvez les étudiants et anciens du College of Computing qui
+            sont passés par les entreprises que vous visez.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/network"
-              className="rounded-sm bg-accent px-5 py-2.5 text-body font-medium text-on-accent transition-colors hover:bg-accent-hover"
-            >
-              Ouvrir la carte
-            </Link>
-            <Link
-              href="/companies"
-              className="rounded-sm border border-border px-5 py-2.5 text-body text-text transition-colors hover:border-border-strong hover:bg-surface"
-            >
-              Voir les entreprises
-            </Link>
-          </div>
+          {/* Un vrai formulaire GET : il marche sans JavaScript, il est
+              partageable en URL, et le bouton retour du navigateur le
+              ramène. */}
+          <form action="/network" method="get" role="search" className="mt-9 max-w-[30rem]">
+            <label htmlFor="home-search" className="sr-only">
+              Chercher une entreprise, une ville ou un domaine
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id="home-search"
+                type="search"
+                name="q"
+                autoComplete="off"
+                placeholder="Entreprise, ville ou domaine…"
+                className="h-11 w-full min-w-0 rounded-sm border border-border-strong bg-surface-raised px-4 text-body text-text placeholder:text-text-faint transition-[border-color,box-shadow] duration-150 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-soft sm:flex-1"
+              />
+              <button
+                type="submit"
+                className={buttonClass({ variant: "primary", size: "lg", className: "sm:px-6" })}
+              >
+                Explorer
+              </button>
+            </div>
+          </form>
+        </div>
 
-          <dl className="mt-14 grid grid-cols-2 gap-x-6 gap-y-8 border-t border-border pt-8 sm:grid-cols-4">
-            {figures.map((figure) => (
-              <div key={figure.label}>
-                <dd className="font-mono text-metric-lg tabular-nums text-text">
-                  {figure.value}
-                </dd>
-                <dt className="mt-1.5 text-label uppercase tracking-[0.08em] text-text-faint">
-                  {figure.label}
-                </dt>
-              </div>
+        <HomeMap places={places} />
+      </section>
+
+      {/* ---- 2. Explorer ------------------------------------------------ */}
+      <section className="border-t border-border">
+        <div className="mx-auto w-full max-w-content px-4 py-14 sm:px-6 lg:py-20">
+          <h2 className="font-mono text-label text-text-faint">explorer</h2>
+          <nav aria-label="Explorer CConnect" className="rule-cols mt-6">
+            {DESTINATIONS.map((item, i) => (
+              <Link key={item.href} href={item.href} className="rule-col group block">
+                <span className="font-mono text-label text-text-faint">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="mt-2 block text-section font-medium text-text group-hover:text-accent group-hover:underline group-hover:underline-offset-4">
+                  {item.title}
+                </span>
+                <span className="mt-1.5 block max-w-[22rem] text-list text-text-muted">
+                  {item.body}
+                </span>
+              </Link>
             ))}
-          </dl>
-        </section>
+          </nav>
+        </div>
+      </section>
 
-        {/* Trois phrases, une par idée. Le titre porte l'information, la
-            seconde ligne ne fait que la situer. */}
-        <section className="grid gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3">
-          <Panel title="Cherche une ville" body="La carte filtre par entreprise, domaine, promo." />
-          <Panel title="Trouve un membre" body="C'est lui que tu contactes, pas l'inconnu." />
-          <Panel title="Ajoute ce que tu sais" body="Un stage vécu, ou juste quelqu'un que tu connais." />
-        </section>
-
-        <section id="confidentialite" className="py-16">
-          <h2 className="text-title-sm font-medium tracking-tight text-text">
-            Ce qui n&apos;est jamais stocké
-          </h2>
-          <p className="mt-3 max-w-xl text-body text-text-muted">
-            Aucun email ni téléphone d&apos;un contact externe : la colonne
-            n&apos;existe pas en base. Accès réservé aux adresses UM6P.
-          </p>
-        </section>
-      </div>
+      {/* ---- 3. Rejoindre / contribuer ----------------------------------- */}
+      <JoinSection member={member} />
 
       <SiteFooter />
     </div>
-  );
-}
-
-function Panel({ title, body }: { title: string; body: string }) {
-  return (
-    <article className="bg-base p-6">
-      <h3 className="text-body font-medium text-text">{title}</h3>
-      <p className="mt-1.5 text-list text-text-muted">{body}</p>
-    </article>
   );
 }

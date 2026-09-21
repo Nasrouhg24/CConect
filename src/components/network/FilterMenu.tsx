@@ -77,10 +77,10 @@ export function FilterMenu({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={`flex h-11 shrink-0 items-center gap-2 rounded-md border px-3 text-body sm:px-3.5 shadow-[var(--shadow-panel)] backdrop-blur-md transition-colors ${
+        className={`flex h-12 shrink-0 items-center gap-2 rounded-sm border bg-surface px-4 text-body shadow-[var(--shadow-panel)] transition-colors sm:px-5 ${
           open || activeCount > 0
-            ? "border-accent/60 bg-accent-soft text-accent"
-            : "border-border bg-surface/95 text-text-muted hover:border-border-strong hover:text-text"
+            ? "border-accent-border bg-accent-soft text-accent-hover"
+            : "border-border-strong text-text-muted hover:border-text-faint hover:text-text"
         }`}
       >
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
@@ -101,7 +101,7 @@ export function FilterMenu({
         <div
           role="dialog"
           aria-label="Filtres du réseau"
-          className="animate-fade absolute right-0 top-[calc(100%+6px)] z-30 w-[min(92vw,30rem)] rounded-md border border-border bg-surface-raised p-4 shadow-[var(--shadow-overlay)]"
+          className="animate-fade absolute right-0 top-[calc(100%+8px)] z-30 w-[min(92vw,30rem)] rounded-md border border-border bg-surface-raised p-4 shadow-[var(--shadow-overlay)]"
         >
           <Group title="Lieu">
             <Select
@@ -180,7 +180,7 @@ export function FilterMenu({
             <p className="text-meta text-text-faint">
               Contribution : expérience ou contact
             </p>
-            <div className="flex rounded-sm border border-border">
+            <div className="flex gap-0.5 rounded-sm border border-border-strong p-0.5">
               {(
                 [
                   [null, "Tout"],
@@ -193,10 +193,10 @@ export function FilterMenu({
                   type="button"
                   onClick={() => set("entryKind", value)}
                   aria-pressed={filters.entryKind === value}
-                  className={`px-2.5 py-1 text-meta transition-colors ${
+                  className={`h-7 rounded-xs px-2.5 text-meta transition-colors duration-150 ${
                     filters.entryKind === value
                       ? "bg-accent-soft text-accent"
-                      : "text-text-muted hover:text-text"
+                      : "text-text-muted hover:bg-surface-hover hover:text-text"
                   }`}
                 >
                   {label}
