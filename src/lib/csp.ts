@@ -13,14 +13,21 @@
  * d'entreprise), et `style-src-attr` n'accepte pas de nonce. Le risque n'a pas
  * de commune mesure avec celui d'un script.
  */
+import { LOGO_PROVIDER_ORIGIN, isLogoProviderEnabled } from "./logo-provider";
+
 export function buildContentSecurityPolicy(nonce: string): string {
   const isDev = process.env.NODE_ENV === "development";
   const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
+  // `NEXT_PUBLIC_LOGO_HOSTS` reste l'allowlist des logos saisis à la main dans
+  // `logo_url`. Le fournisseur, lui, n'est ouvert que s'il est configuré : sans
+  // jeton, aucune requête ne part vers lui, donc rien à autoriser.
   const logoHosts = (process.env.NEXT_PUBLIC_LOGO_HOSTS ?? "")
     .split(",")
     .map((host) => host.trim())
     .filter((host) => host.startsWith("https://"));
+
+  if (isLogoProviderEnabled) logoHosts.push(LOGO_PROVIDER_ORIGIN);
 
   const connect = ["'self'"];
   if (supabaseOrigin) {
