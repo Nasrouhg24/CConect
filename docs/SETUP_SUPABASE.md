@@ -11,18 +11,20 @@ sur les données, l'authentification ou la RLS.
 
 ## 2. Appliquer le schéma
 
-Dans le **SQL Editor** de Supabase, exécuter dans l'ordre :
+Dans le **SQL Editor** de Supabase, exécuter **tous** les fichiers de
+`supabase/migrations/`, dans l'ordre de leur numéro, puis `supabase/seed.sql`
+(villes et entreprises de départ). Ce que chacun apporte est écrit en tête du
+fichier, et résumé dans [la carte de la base](map/database.md#migrations).
 
-1. `supabase/migrations/0001_init.sql` — types, tables, triggers, RLS
-2. `supabase/migrations/0002_member_contact.sql` — coordonnées du membre
-3. `supabase/migrations/0003_companies_offers_contacts.sql` — entreprises, offres, contacts structurés
-4. `supabase/migrations/0004_scale.sql` — index, RLS en InitPlan, agrégats, quota d'écriture
-5. `supabase/migrations/0005_hardening.sql` — corrections de l'audit de sécurité
-6. `supabase/seed.sql` — villes et entreprises de départ
+L'ordre n'est pas indicatif : chaque migration suppose la précédente. La
+plupart sont rejouables sans dommage (tout y est `if not exists` ou
+`or replace`) — ce qui ne dispense pas de les appliquer une par une, et de
+lire l'erreur si l'une s'arrête.
 
-Les cinq migrations sont à appliquer **dans l'ordre** : chacune suppose la
-précédente. `0004` et `0005` sont rejouables sans dommage (tout y est
-`if not exists` ou `or replace`).
+**Une migration en retard casse l'écran qui l'attend.** La `0011`, par
+exemple, crée les agrégats dont `/network` a besoin pour dessiner la carte :
+déployer le code sans elle donne une carte en erreur pour tout le monde. La
+base d'abord, le déploiement ensuite.
 
 `npm test` rejoue ces migrations dans un Postgres jetable et attaque le
 résultat (`tests/database-security.test.ts`) : si l'une d'elles ne s'applique
