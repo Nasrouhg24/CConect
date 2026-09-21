@@ -14,7 +14,8 @@ import {
   STATUS_LABELS,
 } from "@/lib/labels";
 import { labelClass, selectClass } from "@/components/ui";
-import type { Company, Entry, Filters, Place } from "@/lib/types";
+import type { NetworkFacets } from "@/lib/entries";
+import type { Company, Filters, Place } from "@/lib/types";
 
 /**
  * Filtres en surcouche.
@@ -26,14 +27,17 @@ import type { Company, Entry, Filters, Place } from "@/lib/types";
 export function FilterMenu({
   filters,
   onChange,
-  entries,
+  facets,
   companies,
   places,
   activeCount,
 }: {
   filters: Filters;
   onChange: (next: Filters) => void;
-  entries: Entry[];
+  /* Pays et années ne sont pas des listes fermées : le serveur dit lesquels
+     le réseau contient vraiment, plutôt que de les faire déduire du jeu
+     d'entrées — qui n'est plus chargé. */
+  facets: NetworkFacets;
   companies: Company[];
   places: Place[];
   activeCount: number;
@@ -57,11 +61,7 @@ export function FilterMenu({
     };
   }, [open]);
 
-  const countries = [
-    ...new Map(entries.map((e) => [e.place.countryCode, e.place.countryName])),
-  ].sort((a, b) => a[1].localeCompare(b[1]));
-
-  const years = [...new Set(entries.map((e) => e.year))].sort((a, b) => b - a);
+  const { countries, years } = facets;
 
   const visiblePlaces = places.filter(
     (p) => !filters.country || p.countryCode === filters.country,
@@ -121,7 +121,7 @@ export function FilterMenu({
               label="Pays"
               value={filters.country}
               onChange={(v) => onChange({ ...filters, country: v, city: null })}
-              options={countries.map(([code, name]) => ({ value: code, label: name }))}
+              options={countries.map(({ code, name }) => ({ value: code, label: name }))}
             />
             <Select
               label="Ville"

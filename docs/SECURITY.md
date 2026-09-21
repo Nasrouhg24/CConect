@@ -52,6 +52,20 @@ Toutes les tables ont `enable row level security`. Résumé des politiques :
 
 Le rôle `anon` n'a aucune politique : sans session, la base ne renvoie rien.
 
+**Les vues et les agrégats ne sont pas une porte dérobée.** La vue
+`map_entries` et les fonctions de la carte (`map_clusters`, `network_facets`,
+`network_suggestions`) sont déclarées `security invoker` : elles s'exécutent
+avec les droits de l'appelant, donc la RLS s'applique à ce qu'elles lisent.
+Sans ça, une vue appartenant au propriétaire du schéma aurait contourné les
+politiques, et un simple *compteur* fuit aussi sûrement qu'une ligne — savoir
+qu'une ville compte trois contributions est déjà une information.
+`tests/database-security.test.ts` vérifie qu'un compte hors périmètre et un
+visiteur n'obtiennent rien de ces agrégats.
+
+**La recherche libre n'est pas concaténée dans du SQL.** Le texte tapé part en
+paramètre, et la comparaison se fait avec `position`, pas `like` : `%` et `_`
+tapés par un membre restent des caractères, pas des jokers.
+
 ## 4. Ce qui circule côté client
 
 - La clé `anon` de Supabase est publique **par conception** — toute la sécurité

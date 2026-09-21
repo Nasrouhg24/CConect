@@ -21,12 +21,13 @@ celle que les tests attaquent directement.
 | Fichier | Rôle |
 |---|---|
 | `types.ts` | Modèle de domaine : `Author`, `Entry`, `Company`, `Contact`, `Experience`, `Place`, `CareerProfile`, énumérations. |
-| `entries.ts` | La forme commune. `experienceToEntry` / `contactToEntry`, filtrage, recherche, grappes de carte, statistiques. |
+| `entries.ts` | La forme commune. `experienceToEntry` / `contactToEntry`, filtrage, recherche, grappes de carte, facettes, statistiques. Les grappes ne portent que des compteurs : le détail d'une ville se lit à part. |
+| `search.ts` | Développe la recherche libre en ce que la base sait comparer : un fragment de texte et les clés d'énumérés dont le libellé le contient. C'est ce qui garde les libellés français hors de Postgres. |
 | `validation.ts` | Schémas zod partagés client/serveur. |
 | `labels.ts` | Tous les libellés et couleurs de domaine. **Premier endroit à regarder pour un changement de mot.** |
 | `career.ts` | Relations de carrière : statut d'emploi, périodes, ordre chronologique. |
 | `skills.ts` | Compétences : forme canonique, plafonds. |
-| `links.ts` | Liens profonds entre écrans, et lecture des filtres depuis l'URL. |
+| `links.ts` | Liens profonds entre écrans, lecture **et écriture** des filtres de la carte dans l'URL (`networkHrefFromFilters`, `networkQuery`). |
 | `avatar.ts` | Photo si elle existe, sinon initiale. |
 
 ## Conseiller

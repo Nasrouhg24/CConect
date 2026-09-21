@@ -25,6 +25,7 @@ sans Supabase Storage ni extension propriétaire.
 | `0008_career_graph.sql` | Graphe de carrière : année d'études, relations datées, compétences, cibles. Plafonds par déclencheur. |
 | `0009_profile_photo.sql` | `avatar_path` + bucket privé `avatars` et ses politiques. |
 | `0010_consent.sql` | Acceptation des politiques : colonnes sur `profiles`, `consent_events` en ajout seul, RPC `accept_policy`. |
+| `0011_map_aggregate.sql` | La carte sans transfert : vue `map_entries`, RPC `map_clusters` (un marqueur par ville), `network_facets`, `network_suggestions`. |
 
 ## Tables
 
@@ -58,6 +59,13 @@ champ libre), `protect_profile_role`, `enforce_write_quota`,
 
 **Dérivations** — `canonical_company_name`, `set_canonical_company_name`,
 `normalize_company_domain`, `touch_updated_at`, `unaccent_fallback`.
+
+**Agrégats de la carte** (`security invoker`, la RLS s'applique) —
+`map_clusters` (un marqueur par ville, filtres compris), `network_facets`
+(pays, années, domaines présents), `network_suggestions` (autocomplétion),
+`map_entry_matches_token` (un mot de la recherche touche-t-il la ligne ?).
+Les libellés français n'y apparaissent jamais : la requête arrive développée
+en clés par `src/lib/search.ts`.
 
 **Agrégats** — vue `company_stats`, fonction `network_stats()`.
 

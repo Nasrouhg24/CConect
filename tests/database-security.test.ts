@@ -636,3 +636,73 @@ test("le domaine semé est déduit du site, et la base refuse une URL brute", as
     /companies_domain_check|violates check constraint/i,
   );
 });
+
+/* ------------------------------------------------------------------ */
+/* Agrégats de la carte — la RLS vaut aussi pour eux                   */
+/* ------------------------------------------------------------------ */
+
+test("l'agrégat de la carte ne compte que ce que l'appelant peut voir", async () => {
+  // Posée hors session : ce qui compte est qui peut la *lire* ensuite.
+  await db.query(
+    `insert into experiences (author_id, company_id, place_id, domain, kind, year, title)
+     values ($1, $2, $3, 'cybersecurity', 'pfe', 2024, 'Marqueur de contrôle')`,
+    [ALICE, companyId, placeId],
+  );
+
+  const clusters = async () => {
+    const { rows } = await db.query<{ c: { total: number }[] }>(
+      "select public.map_clusters('{}'::jsonb) as c",
+    );
+    return rows[0].c;
+  };
+
+  const seenByMember = await as(ALICE, clusters);
+  assert.ok(
+    seenByMember.some((c) => Number(c.total) > 0),
+    "un membre doit voir la ville où il a contribué",
+  );
+
+  /* Un compte authentifié hors périmètre n'a pas de profil : `is_member()`
+     est faux, la RLS ne lui montre aucune ligne. L'agrégat ne doit donc rien
+     compter — un compteur est une fuite aussi sûrement qu'une ligne. */
+  assert.deepEqual(await as(OUTSIDER, clusters), []);
+  assert.deepEqual(await as(null, clusters), []);
+});
+
+test("un visiteur ne voit rien de la carte, et ne peut pas l'agréger", async () => {
+  await db.exec("set role anon");
+  try {
+    /* Deux remparts, et c'est volontaire. La migration retire `select` à
+       `anon` sur la vue, mais un projet Supabase ré-accorde volontiers les
+       privilèges par défaut sur les nouveaux objets : ce qui doit tenir même
+       alors, c'est la RLS — la vue est `security_invoker`, donc un visiteur
+       n'obtient aucune ligne, quel que soit le privilège de table. */
+    const { rows } = await db.query<{ n: string }>(
+      "select count(*) as n from public.map_entries",
+    );
+    assert.equal(Number(rows[0].n), 0, "un visiteur ne lit aucune contribution");
+
+    // L'exécution des agrégats, elle, lui est refusée franchement.
+    for (const call of [
+      "select public.map_clusters('{}'::jsonb)",
+      "select public.network_facets()",
+      "select public.network_suggestions('a', '{}', 7)",
+    ]) {
+      await refused(() => db.query(call), /permission denied|droit refus/i);
+    }
+  } finally {
+    await db.exec("reset role");
+  }
+});
+
+test("l'autocomplétion ne propose que les membres visibles par l'appelant", async () => {
+  const names = async () => {
+    const { rows } = await db.query<{ s: { members: { name: string }[] } }>(
+      "select public.network_suggestions($1, $2, $3) as s",
+      ["ali", [], 7],
+    );
+    return rows[0].s.members.map((m) => m.name);
+  };
+
+  assert.deepEqual(await as(OUTSIDER, names), []);
+});

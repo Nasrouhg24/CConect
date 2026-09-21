@@ -7,12 +7,14 @@ import {
 } from "./labels";
 import type {
   Author,
+  Campus,
   Company,
   Contact,
   Domain,
   Entry,
   Experience,
   Filters,
+  MemberStatus,
   Place,
 } from "./types";
 
@@ -146,11 +148,22 @@ export function hasActiveFilters(filters: Filters): boolean {
 /* Agrégations                                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Un marqueur de la carte : une ville et ce qu'elle pèse.
+ *
+ * Volontairement sans les entrées elles-mêmes. La carte n'a besoin que d'un
+ * poids pour dimensionner le point et des entreprises représentées pour
+ * tracer les liens entre villes ; le détail est chargé à l'ouverture du
+ * panneau. C'est ce qui permet à `/network` de tenir avec un agrégat par
+ * ville au lieu de la totalité des contributions.
+ */
 export interface PlaceCluster {
   place: Place;
-  entries: Entry[];
+  total: number;
   experienceCount: number;
   contactCount: number;
+  /** Entreprises représentées dans la ville, dédoublonnées. */
+  companySlugs: string[];
 }
 
 /**
@@ -175,27 +188,87 @@ export function isPlottable(place: Place): boolean {
   return true;
 }
 
-/** Regroupe les entrées par ville pour dessiner un marqueur par lieu. */
+/**
+ * Regroupe les entrées par ville pour dessiner un marqueur par lieu.
+ *
+ * Équivalent en JavaScript de la fonction `map_clusters` en base : le mode
+ * démo et le mode terminal, qui travaillent sur un jeu déjà en mémoire,
+ * doivent produire exactement les mêmes marqueurs que `/network` branché sur
+ * Supabase. Les deux sont tenus ensemble par `tests/map-aggregate.test.ts`.
+ */
 export function clusterByPlace(entries: Entry[]): PlaceCluster[] {
-  const byPlace = new Map<string, PlaceCluster>();
+  const byPlace = new Map<string, PlaceCluster & { slugs: Set<string> }>();
   for (const entry of entries) {
     let cluster = byPlace.get(entry.place.id);
     if (!cluster) {
       cluster = {
         place: entry.place,
-        entries: [],
+        total: 0,
         experienceCount: 0,
         contactCount: 0,
+        companySlugs: [],
+        slugs: new Set<string>(),
       };
       byPlace.set(entry.place.id, cluster);
     }
-    cluster.entries.push(entry);
+    cluster.total += 1;
+    cluster.slugs.add(entry.company.slug);
     if (entry.entryKind === "experience") cluster.experienceCount += 1;
     else cluster.contactCount += 1;
   }
-  return [...byPlace.values()].sort(
-    (a, b) => b.entries.length - a.entries.length,
-  );
+  return [...byPlace.values()]
+    .map(({ slugs, ...cluster }) => ({
+      ...cluster,
+      companySlugs: [...slugs].sort(),
+    }))
+    .sort((a, b) => b.total - a.total || a.place.id.localeCompare(b.place.id));
+}
+
+/**
+ * Les valeurs que le menu de filtres propose vraiment.
+ *
+ * Pays et années ne sont pas des listes fermées comme les domaines ou les
+ * statuts : elles dépendent de ce que le réseau contient. Le menu les lisait
+ * dans le jeu d'entrées complet ; il les reçoit maintenant du serveur, qui
+ * les agrège (`network_facets` en base, cette fonction en mode démo).
+ */
+export interface NetworkFacets {
+  countries: { code: string; name: string }[];
+  years: number[];
+  /** Nombre de contributions par domaine — le compteur de l'autocomplétion. */
+  domains: { key: Domain; count: number }[];
+}
+
+export function computeFacets(entries: Entry[]): NetworkFacets {
+  const countries = new Map<string, string>();
+  const years = new Set<number>();
+  const domains = new Map<Domain, number>();
+  for (const entry of entries) {
+    countries.set(entry.place.countryCode, entry.place.countryName);
+    years.add(entry.year);
+    domains.set(entry.domain, (domains.get(entry.domain) ?? 0) + 1);
+  }
+  return sortFacets({
+    countries: [...countries].map(([code, name]) => ({ code, name })),
+    years: [...years],
+    domains: [...domains].map(([key, count]) => ({ key, count })),
+  });
+}
+
+/**
+ * L'ordre d'affichage des facettes, quelle que soit leur provenance.
+ *
+ * Postgres trie selon la collation de la base, `localeCompare` selon celle du
+ * serveur Node : deux listes de pays qui ne se ressemblent pas. Le classement
+ * est donc refait ici, après la lecture, pour que le menu propose le même
+ * ordre branché ou non.
+ */
+export function sortFacets(facets: NetworkFacets): NetworkFacets {
+  return {
+    countries: [...facets.countries].sort((a, b) => a.name.localeCompare(b.name)),
+    years: [...facets.years].sort((a, b) => b - a),
+    domains: [...facets.domains].sort((a, b) => b.count - a.count),
+  };
 }
 
 /** Ce que le panneau contextuel d'une ville ou d'une entreprise affiche. */
@@ -339,8 +412,89 @@ const SUGGESTION_ORDER: SuggestionKind[] = [
 ];
 
 /**
- * Autocomplétion calculée à la volée sur le jeu d'entrées déjà chargé.
- * Pas d'appel réseau : la recherche reste instantanée et fonctionne hors ligne.
+ * D'où viennent les suggestions, avant mise en forme.
+ *
+ * Deux sources les produisent : le jeu en mémoire (mode démo, mode terminal)
+ * et `network_suggestions` en base. Les libellés, les indices et surtout les
+ * filtres posés au clic ne sont écrits qu'ici — sinon choisir « Paris »
+ * n'aurait pas le même effet selon que l'instance est branchée ou non.
+ */
+export interface SuggestionSource {
+  companies: { slug: string; name: string; count: number }[];
+  cities: { placeId: string; city: string; countryName: string; count: number }[];
+  countries: { code: string; name: string; count: number }[];
+  domains: { key: Domain; count: number }[];
+  members: {
+    id: string;
+    name: string;
+    status: MemberStatus;
+    campus: Campus;
+    count: number;
+  }[];
+}
+
+/**
+ * Mise en forme et classement des suggestions. Entreprises d'abord — c'est ce
+ * qu'on cherche le plus souvent sur cette carte —, puis villes, pays,
+ * domaines, membres ; à l'intérieur d'une famille, le plus représenté gagne.
+ */
+export function suggestionsFrom(
+  source: SuggestionSource,
+  limit = 7,
+): Suggestion[] {
+  const buckets: Record<SuggestionKind, Suggestion[]> = {
+    company: source.companies.map((c) => ({
+      kind: "company",
+      label: c.name,
+      hint: "Entreprise",
+      patch: { company: c.slug },
+      count: c.count,
+    })),
+    city: source.cities.map((c) => ({
+      kind: "city",
+      label: `${c.city}, ${c.countryName}`,
+      hint: "Ville",
+      /* Choisir une ville, c'est y aller : les filtres de zone plus larges
+         seraient contradictoires et sont retirés. */
+      patch: { city: c.placeId, country: null, continent: null },
+      count: c.count,
+    })),
+    country: source.countries.map((c) => ({
+      kind: "country",
+      label: c.name,
+      hint: "Pays",
+      patch: { country: c.code, city: null, continent: null },
+      count: c.count,
+    })),
+    domain: source.domains.map((d) => ({
+      kind: "domain",
+      label: DOMAIN_LABELS[d.key],
+      hint: "Domaine",
+      patch: { domain: d.key },
+      count: d.count,
+    })),
+    member: source.members.map((m) => ({
+      kind: "member",
+      label: m.name,
+      hint: `${STATUS_LABELS[m.status]} · ${CAMPUS_LABELS[m.campus]}`,
+      /* Un membre n'est pas un filtre : on relance la recherche sur son nom. */
+      patch: { q: m.name },
+      count: m.count,
+    })),
+  };
+
+  return SUGGESTION_ORDER.flatMap((kind) =>
+    [...buckets[kind]].sort((a, b) => b.count - a.count),
+  ).slice(0, limit);
+}
+
+/** En deçà de deux caractères, tout correspond : on ne propose rien. */
+export const MIN_SUGGESTION_LENGTH = 2;
+
+/**
+ * Autocomplétion calculée sur un jeu d'entrées déjà en mémoire — le mode démo
+ * et le mode terminal. Branchée sur Supabase, la même liste est agrégée en
+ * base (`network_suggestions`), pour ne pas avoir à charger le réseau entier.
  */
 export function buildSuggestions(
   entries: Entry[],
@@ -348,18 +502,18 @@ export function buildSuggestions(
   limit = 7,
 ): Suggestion[] {
   const q = normalize(query.trim());
-  if (q.length < 2) return [];
+  if (q.length < MIN_SUGGESTION_LENGTH) return [];
 
-  const companies = new Map<string, Suggestion>();
-  const cities = new Map<string, Suggestion>();
-  const countries = new Map<string, Suggestion>();
-  const domains = new Map<string, Suggestion>();
-  const members = new Map<string, Suggestion>();
+  const companies = new Map<string, SuggestionSource["companies"][number]>();
+  const cities = new Map<string, SuggestionSource["cities"][number]>();
+  const countries = new Map<string, SuggestionSource["countries"][number]>();
+  const domains = new Map<Domain, SuggestionSource["domains"][number]>();
+  const members = new Map<string, SuggestionSource["members"][number]>();
 
-  const bump = (
-    store: Map<string, Suggestion>,
-    key: string,
-    make: () => Suggestion,
+  const bump = <K, V extends { count: number }>(
+    store: Map<K, V>,
+    key: K,
+    make: () => V,
   ) => {
     const existing = store.get(key);
     if (existing) existing.count += 1;
@@ -369,19 +523,16 @@ export function buildSuggestions(
   for (const entry of entries) {
     if (normalize(entry.company.name).includes(q)) {
       bump(companies, entry.company.slug, () => ({
-        kind: "company",
-        label: entry.company.name,
-        hint: "Entreprise",
-        patch: { company: entry.company.slug },
+        slug: entry.company.slug,
+        name: entry.company.name,
         count: 1,
       }));
     }
     if (normalize(entry.place.city).includes(q)) {
       bump(cities, entry.place.id, () => ({
-        kind: "city",
-        label: `${entry.place.city}, ${entry.place.countryName}`,
-        hint: "Ville",
-        patch: { city: entry.place.id, country: null, continent: null },
+        placeId: entry.place.id,
+        city: entry.place.city,
+        countryName: entry.place.countryName,
         count: 1,
       }));
     }
@@ -391,44 +542,35 @@ export function buildSuggestions(
     ];
     if (countryTerms.some((term) => normalize(term).includes(q))) {
       bump(countries, entry.place.countryCode, () => ({
-        kind: "country",
-        label: entry.place.countryName,
-        hint: "Pays",
-        patch: { country: entry.place.countryCode, city: null, continent: null },
+        code: entry.place.countryCode,
+        name: entry.place.countryName,
         count: 1,
       }));
     }
     if (normalize(DOMAIN_LABELS[entry.domain]).includes(q)) {
-      bump(domains, entry.domain, () => ({
-        kind: "domain",
-        label: DOMAIN_LABELS[entry.domain],
-        hint: "Domaine",
-        patch: { domain: entry.domain },
-        count: 1,
-      }));
+      bump(domains, entry.domain, () => ({ key: entry.domain, count: 1 }));
     }
     if (normalize(entry.author.fullName).includes(q)) {
       bump(members, entry.author.id, () => ({
-        kind: "member",
-        label: entry.author.fullName,
-        hint: `${STATUS_LABELS[entry.author.status]} · ${CAMPUS_LABELS[entry.author.campus]}`,
-        patch: { q: entry.author.fullName },
+        id: entry.author.id,
+        name: entry.author.fullName,
+        status: entry.author.status,
+        campus: entry.author.campus,
         count: 1,
       }));
     }
   }
 
-  const buckets: Record<SuggestionKind, Map<string, Suggestion>> = {
-    company: companies,
-    city: cities,
-    country: countries,
-    domain: domains,
-    member: members,
-  };
-
-  return SUGGESTION_ORDER.flatMap((kind) =>
-    [...buckets[kind].values()].sort((a, b) => b.count - a.count),
-  ).slice(0, limit);
+  return suggestionsFrom(
+    {
+      companies: [...companies.values()],
+      cities: [...cities.values()],
+      countries: [...countries.values()],
+      domains: [...domains.values()],
+      members: [...members.values()],
+    },
+    limit,
+  );
 }
 
 /**

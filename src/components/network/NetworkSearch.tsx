@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { buildSuggestions, type Suggestion } from "@/lib/entries";
-import type { Entry, Filters } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { Suggestion } from "@/lib/entries";
+import type { Filters } from "@/lib/types";
 
 const KIND_ICON: Record<Suggestion["kind"], string> = {
   company: "M2 13h12M4 13V4h4v9M10 13V7h3v6",
@@ -15,19 +15,26 @@ const KIND_ICON: Record<Suggestion["kind"], string> = {
 /**
  * Recherche globale, posée au-dessus de la carte.
  *
- * Les suggestions sont calculées localement sur les entrées déjà chargées :
- * aucun aller-retour réseau, et le classement suit ce que le réseau contient
- * réellement (entreprises d'abord, puis villes, pays, domaines, membres).
+ * Les suggestions étaient calculées ici, sur les entrées déjà chargées. Elles
+ * viennent maintenant du serveur, qui les agrège en base : la page n'a plus
+ * besoin de tenir le réseau entier en mémoire pour proposer « Paris ». Le
+ * classement, lui, n'a pas bougé — entreprises d'abord, puis villes, pays,
+ * domaines, membres.
+ *
+ * Elles sont donc en léger retard sur ce qui est tapé, le temps d'un
+ * aller-retour : `pending` le dit plutôt que de le laisser deviner.
  */
 export function NetworkSearch({
-  entries,
+  suggestions,
   value,
+  pending,
   onChange,
   onApply,
   resultCount,
 }: {
-  entries: Entry[];
+  suggestions: Suggestion[];
   value: string;
+  pending: boolean;
   onChange: (value: string) => void;
   onApply: (patch: Partial<Filters>) => void;
   resultCount: number;
@@ -35,11 +42,6 @@ export function NetworkSearch({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const boxRef = useRef<HTMLDivElement | null>(null);
-
-  const suggestions = useMemo(
-    () => buildSuggestions(entries, value),
-    [entries, value],
-  );
 
   useEffect(() => {
     function onDocPointerDown(event: PointerEvent) {
@@ -51,7 +53,10 @@ export function NetworkSearch({
 
   const showList = open && suggestions.length > 0;
 
-  function choose(suggestion: Suggestion) {
+  function choose(suggestion: Suggestion | undefined) {
+    /* La liste peut s'être renouvelée entre la frappe et la touche Entrée :
+       le rang surligné ne désigne alors plus rien. */
+    if (!suggestion) return;
     onApply({ q: "", ...suggestion.patch });
     setOpen(false);
   }
@@ -128,7 +133,12 @@ export function NetworkSearch({
             /
           </span>
         ) : null}
-        <span className="hidden shrink-0 border-l border-border pl-3 font-mono text-label tabular-nums text-text-faint sm:block">
+        <span
+          className={`hidden shrink-0 border-l border-border pl-3 font-mono text-label tabular-nums transition-opacity sm:block ${
+            pending ? "opacity-40" : "text-text-faint"
+          }`}
+          aria-live="polite"
+        >
           {resultCount}
         </span>
       </div>

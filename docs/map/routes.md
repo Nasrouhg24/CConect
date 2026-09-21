@@ -15,7 +15,7 @@ qui n'a pas accepté la version en vigueur est renvoyée sur `/legal/accepter`.
 | URL | Fichier | Protégée | Rôle |
 |---|---|---|---|
 | `/` | `app/page.tsx` | non | Accueil : hero, aperçu du réseau, section « rejoindre ». Assemble `components/home/`. |
-| `/network` | `app/network/page.tsx` (+ `network/loading.tsx`) | oui | **L'écran principal.** Carte plein écran ; les filtres vivent dans l'URL (`?q=`, `?domain=`…). Rend `components/network/NetworkExplorer.tsx`. |
+| `/network` | `app/network/page.tsx` (+ `network/loading.tsx`) | oui | **L'écran principal.** Carte plein écran, dessinée depuis un agrégat par ville ; **tous** les filtres vivent dans l'URL (`?q=`, `?domain=`, `?city=`, `?campus=`, `?year=`…) et sont appliqués en base. Rend `components/network/NetworkExplorer.tsx`. |
 | `/companies` | `app/companies/page.tsx` (+ `companies/loading.tsx`) | oui | Répertoire des entreprises → `components/companies/CompanyLibrary.tsx`. |
 | `/companies/[slug]` | `app/companies/[slug]/page.tsx` (+ `[slug]/loading.tsx`, `[slug]/not-found.tsx`) | oui | Fiche : contacts, expériences, connexions. |
 | `/companies/new` | `app/companies/new/page.tsx` | oui | Création d'une fiche. `?name=` prérempli depuis la bibliothèque. |
@@ -56,6 +56,7 @@ formulaire n'est qu'un confort.
 | `app/profile/actions.ts` | `updateContactChannels`, `saveCareerProfile` | Canaux de contact, objectifs de carrière |
 | `app/onboarding/actions.ts` | `createProfile` | Profil + version des politiques acceptée |
 | `app/legal/actions.ts` | `acceptPolicies` | Acceptation d'une version (membre déjà inscrit) |
+| `app/network/actions.ts` | `loadPlaceEntries` | *N'écrit rien* : lit le détail d'une ville à l'ouverture du panneau. Revalide ses filtres comme une URL. |
 
 ## Routes techniques
 

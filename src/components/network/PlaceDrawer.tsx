@@ -21,10 +21,13 @@ import { contactDisplayName, type Entry, type Place } from "@/lib/types";
 export function PlaceDrawer({
   place,
   entries,
+  loading = false,
   onClose,
 }: {
   place: Place;
   entries: Entry[];
+  /** Le détail de la ville est en route : les compteurs seraient faux. */
+  loading?: boolean;
   onClose: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -64,6 +67,16 @@ export function PlaceDrawer({
           </IconButton>
         </header>
 
+        {/* Les contributions ne sont chargées qu'ici, à l'ouverture : la
+            carte, elle, n'a reçu que des compteurs par ville. Afficher des
+            totaux à zéro en attendant les annoncerait faux. */}
+        {loading ? (
+          <div className="flex-1 px-5 py-5">
+            <p className="animate-pulse font-mono text-label uppercase tracking-[0.12em] text-text-faint">
+              Chargement du détail…
+            </p>
+          </div>
+        ) : (
         <div className="thin-scroll flex-1 overflow-y-auto">
           <section className="grid grid-cols-3 gap-3 border-b border-border px-5 py-4">
             <Metric size="sm" value={summary.experiences} label="expériences" />
@@ -173,6 +186,7 @@ export function PlaceDrawer({
             ) : null}
           </Section>
         </div>
+        )}
 
         <footer className="border-t border-border p-4">
           <Button

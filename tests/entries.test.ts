@@ -59,24 +59,26 @@ test("la recherche ignore accents et casse", () => {
   );
 });
 
-test("le regroupement par ville conserve toutes les entrées", () => {
+test("le regroupement par ville ne perd ni n'invente de contribution", () => {
   const clusters = clusterByPlace(ENTRIES);
-  const total = clusters.reduce((sum, c) => sum + c.entries.length, 0);
+  const total = clusters.reduce((sum, c) => sum + c.total, 0);
   assert.equal(total, ENTRIES.length);
+
   for (const cluster of clusters) {
-    assert.equal(
-      cluster.experienceCount + cluster.contactCount,
-      cluster.entries.length,
-    );
-    assert.ok(
-      cluster.entries.every((e) => e.place.id === cluster.place.id),
-      "une entrée est rangée dans la mauvaise ville",
+    const here = ENTRIES.filter((e) => e.place.id === cluster.place.id);
+    assert.equal(cluster.total, here.length);
+    assert.equal(cluster.experienceCount + cluster.contactCount, cluster.total);
+    /* Le marqueur ne transporte plus les entrées — seulement les entreprises
+       qu'il représente, dont la carte tire les liens entre villes. */
+    assert.deepEqual(
+      cluster.companySlugs,
+      [...new Set(here.map((e) => e.company.slug))].sort(),
     );
   }
 });
 
 test("les clusters sont triés du plus dense au moins dense", () => {
-  const sizes = clusterByPlace(ENTRIES).map((c) => c.entries.length);
+  const sizes = clusterByPlace(ENTRIES).map((c) => c.total);
   assert.deepEqual(sizes, [...sizes].sort((a, b) => b - a));
 });
 

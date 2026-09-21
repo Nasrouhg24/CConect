@@ -18,6 +18,7 @@ node --test --experimental-strip-types --import=./tests/ts-resolver.mjs \
 |---|---|
 | `entries.test.ts` | Conversion expérience/contact → `Entry`, filtres, recherche. |
 | `map-points.test.ts` | Projection et grappes de la carte. |
+| `map-aggregate.test.ts` | Parité entre l'agrégat de la base (`map_clusters`) et celui de l'application, filtre par filtre et recherche par recherche. Rejoue les migrations dans PGlite. |
 | `network-sample.test.ts` | Cohérence de l'échantillon de démonstration. |
 | `data-integrity.test.ts` | Intégrité du jeu de données (`lib/data/`). |
 | `company-name.test.ts` | Normalisation, slug, initiales. |

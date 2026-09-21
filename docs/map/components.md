@@ -27,7 +27,7 @@ supprimée — voir `docs/DESIGN_SYSTEM.md`.
 
 | Fichier | Rôle |
 |---|---|
-| `map/WorldMap.tsx` | Le gros morceau : projection, zoom, grappes, rendu SVG local (Natural Earth, aucune tuile distante). |
+| `map/WorldMap.tsx` | Le gros morceau : projection, zoom, grappes, rendu SVG local (Natural Earth, aucune tuile distante). Ne reçoit que des compteurs par ville. |
 | `map/MapControls.tsx` | Zoom, recentrage, légende. |
 
 ## Écran réseau (`components/network/`)
@@ -35,10 +35,11 @@ supprimée — voir `docs/DESIGN_SYSTEM.md`.
 | Fichier | Rôle |
 |---|---|
 | `network/NetworkExplorer.tsx` | Assemble carte, recherche, filtres, panneau. État des filtres ↔ URL. |
-| `network/NetworkSearch.tsx` | Recherche globale flottante, autocomplétion locale. |
+| `network/NetworkSearch.tsx` | Recherche globale flottante ; les suggestions viennent du serveur. |
 | `network/FilterMenu.tsx` | Filtres en surcouche. |
 | `network/ActiveFilters.tsx` | Filtres actifs en puces retirables. |
-| `network/PlaceDrawer.tsx` | Panneau contextuel d'une ville. |
+| `network/PlaceDetail.tsx` | Charge les contributions de la ville ouverte (Server Action) et les passe au panneau. |
+| `network/PlaceDrawer.tsx` | Panneau contextuel d'une ville. Affiche ; ne sait pas d'où vient ce qu'il montre. |
 | `network/ContactModal.tsx` | Mise en relation avec l'auteur d'une entrée. |
 
 ## Entreprises (`components/companies/`)

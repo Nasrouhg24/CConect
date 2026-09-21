@@ -171,7 +171,7 @@ export function WorldMap({
   );
 
   const maxCount = useMemo(
-    () => clusters.reduce((m, c) => Math.max(m, c.entries.length), 1),
+    () => clusters.reduce((m, c) => Math.max(m, c.total), 1),
     [clusters],
   );
 
@@ -187,7 +187,7 @@ export function WorldMap({
         if (!isPlottable(cluster.place)) return [];
         const xy = projection([cluster.place.lng, cluster.place.lat]);
         if (!xy || !Number.isFinite(xy[0]) || !Number.isFinite(xy[1])) return [];
-        const count = cluster.entries.length;
+        const count = cluster.total;
         // Aire proportionnelle au volume : le rayon suit la racine.
         const r = 5 + Math.sqrt(count / maxCount) * 9;
         return [
@@ -247,13 +247,11 @@ export function WorldMap({
     const out: { id: string; d: string; a: string; b: string }[] = [];
     for (let i = 0; i < points.length; i += 1) {
       const from = points[i];
-      const fromCompanies = new Set(
-        from.cluster.entries.map((e) => e.company.slug),
-      );
+      const fromCompanies = new Set(from.cluster.companySlugs);
       for (let j = i + 1; j < points.length; j += 1) {
         const to = points[j];
-        const shared = to.cluster.entries.some((e) =>
-          fromCompanies.has(e.company.slug),
+        const shared = to.cluster.companySlugs.some((slug) =>
+          fromCompanies.has(slug),
         );
         if (!shared) continue;
         // Arc léger : deux traits droits entre villes voisines se
@@ -483,7 +481,7 @@ export function WorldMap({
                     strokeWidth={1.2 / view.k}
                   />
                 )}
-                {cluster.entries.length > 1 ? (
+                {cluster.total > 1 ? (
                   <text
                     y={radius * 0.36}
                     textAnchor="middle"
@@ -493,7 +491,7 @@ export function WorldMap({
                     fill="var(--color-on-accent)"
                     pointerEvents="none"
                   >
-                    {cluster.entries.length}
+                    {cluster.total}
                   </text>
                 ) : null}
               </g>

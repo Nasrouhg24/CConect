@@ -68,11 +68,15 @@ marcher dessus. Les tâches marquées 🟢 sont de bons premiers tickets.
 
 ## Lot 3 bis — Passage à l'échelle (le reste)
 
-- [ ] Carte dessinée à partir d'un agrégat par ville, détail chargé à
-      l'ouverture du panneau — aujourd'hui `/network` transfère toutes les
-      contributions au navigateur 🟢
+- [x] Carte dessinée à partir d'un agrégat par ville (`map_clusters`), détail
+      chargé à l'ouverture du panneau. Les filtres sont appliqués en base et
+      vivent dans l'URL ; `tests/map-aggregate.test.ts` tient l'agrégat de la
+      base et celui du mode démo au même résultat
 - [ ] Recherche d'entreprise côté serveur pour le sélecteur, au lieu d'envoyer
-      l'annuaire complet
+      l'annuaire complet 🟢
+- [ ] Conseiller, annuaire des personnes et terminal lisent encore tout le
+      réseau (`getEntries`) — le prochain plafond, maintenant que la carte
+      est passée à l'agrégat
 - [ ] Vérifier les migrations sur un Postgres jetable dans la CI
       (`supabase db reset`), aujourd'hui elles ne sont validées qu'à la main
 - [ ] Mesurer : `explain analyze` sur les requêtes chaudes avec un jeu de

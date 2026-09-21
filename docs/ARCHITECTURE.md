@@ -140,7 +140,8 @@ et expériences *de cette entreprise* (`getCompanyBundle`, filtré sur
 `company_id`) ; la page profil lit les contributions *du membre*
 (`getEntriesByAuthor`) ; la liste des entreprises lit des compteurs agrégés par
 la vue `company_stats` ; l'accueil et `/stats` appellent la fonction
-`network_stats()`, qui renvoie la page entière en un seul agrégat.
+`network_stats()`, qui renvoie la page entière en un seul agrégat ; la carte
+appelle `map_clusters`, qui renvoie un marqueur par ville.
 
 **2. Pas de lecture non paginée.** PostgREST plafonne une réponse (1 000 lignes
 par défaut) et tronque **en silence** : une liste non paginée ne casse pas
@@ -164,18 +165,49 @@ qui grossit, c'est la différence entre un index scan et une lecture complète
 payée au prix fort. Les index composites de la migration `0004` servent le
 couple filtre + tri des listes (`(company_id, published_at desc)`, etc.).
 
+### La carte, et pourquoi elle ne charge plus le réseau
+
+`/network` transférait toutes les contributions au navigateur : la carte
+projette l'ensemble du réseau, et la recherche était instantanée parce qu'elle
+travaillait sur un jeu déjà chargé. Le coût de l'écran suivait donc la taille
+de la plateforme, pas ce qu'il affiche — c'était le plafond connu de
+l'architecture.
+
+La migration `0011` le retire. La carte est dessinée depuis `map_clusters` :
+un enregistrement par ville (coordonnées, poids, compteurs, entreprises
+représentées), filtres appliqués en base. La réponse grandit avec le nombre de
+**villes** du réseau, pas avec le nombre de contributions. Les contributions
+d'une ville ne voyagent qu'à l'ouverture de son panneau, par une lecture
+ciblée sur `place_id` (`getPlaceEntries`, appelée depuis une Server Action).
+
+Trois conséquences qu'il faut connaître avant de toucher à cet écran :
+
+- **Les filtres vivent dans l'URL.** Ils ne peuvent plus être un état local,
+  puisque changer un filtre demande un nouvel agrégat. Effet de bord
+  bienvenu : une carte filtrée se partage et se recharge telle quelle.
+- **La recherche libre fait un aller-retour.** Elle est différée le temps de
+  la frappe, et l'écran dit qu'il travaille plutôt que de figer un compteur
+  périmé.
+- **Les libellés restent dans l'application.** La base ne connaît que des clés
+  (`cybersecurity`, `alumni`) : taper « Cybersécurité » marche parce que
+  `src/lib/search.ts` développe chaque mot en clés avant l'appel. Sans ça,
+  traduire l'interface demanderait une migration. `tests/map-aggregate.test.ts`
+  compare les deux chemins — celui de la base et celui du mode démo — filtre
+  par filtre.
+
 ### Ce qui reste borné, et le sait
 
-- **La carte charge tout le réseau** (`getEntries`). C'est assumé : la
-  recherche est instantanée parce qu'elle travaille sur un jeu déjà chargé, et
-  la carte projette par définition l'ensemble. C'est le plafond connu de
-  l'architecture. Le jour où le volume gêne, l'étape suivante n'est pas de
-  paginer la carte mais de la faire dessiner à partir d'un agrégat par ville
-  (`place_id`, compteurs), le détail n'étant chargé qu'à l'ouverture du
-  panneau.
+- **Le conseiller, l'annuaire des personnes et le terminal** lisent encore
+  `getEntries`, c'est-à-dire tout le réseau. Ils raisonnent sur le graphe
+  entier, pas sur une vue ; l'agrégat de la carte ne les couvre pas. C'est le
+  prochain plafond, et il est plus haut que ne l'était celui de la carte.
 - **Le sélecteur d'entreprise** reçoit l'annuaire complet pour son
   autocomplétion. Même raisonnement, même issue : une recherche côté serveur
   quand l'annuaire dépassera quelques milliers de fiches.
+- **La recherche libre lit le texte ligne à ligne** (`position` sur une
+  concaténation, pas d'index). Elle n'a pas besoin de mieux tant que la base
+  tient en mémoire ; au-delà, c'est un index trigramme ou un `tsvector`
+  matérialisé qu'il faudra, pas un changement de forme.
 
 ### Limitation de débit
 

@@ -17,6 +17,15 @@ const entries: Entry[] = [
   ...CONTACTS.map(contactToEntry),
 ];
 
+/**
+ * Ce que le panneau d'une ville reçoit : depuis que la carte est dessinée
+ * depuis un agrégat, ces entrées viennent d'une lecture ciblée
+ * (`getPlaceEntries`) et non plus du marqueur lui-même. Le test les regroupe
+ * donc comme la base le ferait.
+ */
+const entriesAt = (placeId: string) =>
+  entries.filter((e) => e.place.id === placeId);
+
 const place = (over: Partial<Place>): Place => ({
   id: "p-test",
   city: "Testville",
@@ -38,11 +47,9 @@ test("un marqueur par ville, identifié par l'id réel du lieu", () => {
 
   for (const cluster of clusters) {
     assert.ok(cluster.place.id.length > 0);
-    // Toute entrée du groupe appartient bien au lieu du groupe : c'est
-    // exactement ce qu'un clic promet d'afficher.
-    for (const entry of cluster.entries) {
-      assert.equal(entry.place.id, cluster.place.id);
-    }
+    // Le poids affiché par le marqueur est bien celui de son lieu : c'est
+    // exactement ce qu'un clic promet d'ouvrir.
+    assert.equal(cluster.total, entriesAt(cluster.place.id).length);
   }
 });
 
@@ -52,39 +59,41 @@ test("le panneau d'un marqueur ne décrit que ce marqueur", () => {
   const casa = clusters.find((c) => c.place.city === "Casablanca");
   assert.ok(paris && casa, "villes de référence absentes du jeu de démo");
 
-  const parisSummary = summarize(paris.entries);
-  const casaSummary = summarize(casa.entries);
+  const parisEntries = entriesAt(paris.place.id);
+  const casaEntries = entriesAt(casa.place.id);
+  const parisSummary = summarize(parisEntries);
+  const casaSummary = summarize(casaEntries);
 
   // Aucune entrée d'une ville ne fuit dans le résumé de l'autre.
   for (const { company } of parisSummary.companies) {
     assert.ok(
-      paris.entries.some((e) => e.company.slug === company.slug),
+      parisEntries.some((e) => e.company.slug === company.slug),
       `${company.name} n'est pas à Paris`,
     );
   }
   assert.equal(
     parisSummary.experiences + parisSummary.contacts,
-    paris.entries.length,
+    paris.total,
   );
-  assert.equal(
-    casaSummary.experiences + casaSummary.contacts,
-    casa.entries.length,
-  );
+  assert.equal(casaSummary.experiences + casaSummary.contacts, casa.total);
 });
 
 test("deux entreprises au même endroit restent toutes les deux accessibles", () => {
   const clusters = clusterByPlace(entries);
-  const shared = clusters.find(
-    (c) => new Set(c.entries.map((e) => e.company.slug)).size > 1,
-  );
+  const shared = clusters.find((c) => c.companySlugs.length > 1);
   assert.ok(shared, "aucune ville ne porte deux entreprises dans le jeu de démo");
 
-  const companies = summarize(shared.entries).companies;
+  const companies = summarize(entriesAt(shared.place.id)).companies;
   assert.ok(companies.length > 1);
   // Le regroupement par ville ne fait disparaître aucune entreprise : elles
-  // sont toutes listées dans le panneau, avec leur compte.
+  // sont toutes listées dans le panneau, avec leur compte — et le marqueur
+  // porte les mêmes, puisque c'est de là que viennent les liens entre villes.
   const total = companies.reduce((sum, c) => sum + c.count, 0);
-  assert.equal(total, shared.entries.length);
+  assert.equal(total, shared.total);
+  assert.deepEqual(
+    companies.map((c) => c.company.slug).sort(),
+    shared.companySlugs,
+  );
 });
 
 test("une coordonnée douteuse ne produit jamais de marqueur", () => {

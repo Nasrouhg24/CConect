@@ -1,14 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { clusterByPlace, filterEntries, hasActiveFilters } from "@/lib/entries";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { hasActiveFilters, type NetworkFacets, type PlaceCluster, type Suggestion } from "@/lib/entries";
+import { networkHrefFromFilters, networkQuery } from "@/lib/links";
 import { EMPTY_FILTERS } from "@/lib/types";
-import type { Company, Entry, Filters, Place } from "@/lib/types";
+import type { Company, Filters, Place } from "@/lib/types";
 import { WorldMap } from "@/components/map/WorldMap";
 import { ActiveFilters } from "./ActiveFilters";
 import { FilterMenu } from "./FilterMenu";
 import { NetworkSearch } from "./NetworkSearch";
-import { PlaceDrawer } from "./PlaceDrawer";
+import { PlaceDetail } from "./PlaceDetail";
+
+/** Délai avant qu'un mot tapé devienne une requête. Une frappe, pas un mot. */
+const TYPING_DELAY = 250;
 
 /**
  * Écran principal de CConnect.
@@ -17,26 +22,60 @@ import { PlaceDrawer } from "./PlaceDrawer";
  * au-dessus ; le détail n'apparaît que lorsqu'on sélectionne une ville.
  * Rien n'est affiché par défaut sous la carte : l'état de repos est vide,
  * et on descend dans le détail à mesure qu'on explore.
+ *
+ * **Les filtres vivent dans l'URL, pas dans cet état.** Ils étaient locaux, et
+ * la page recevait toutes les contributions pour pouvoir filtrer dans le
+ * navigateur : le coût de l'écran grandissait avec le réseau. La carte est
+ * maintenant dessinée depuis un agrégat par ville calculé en base, donc
+ * changer un filtre veut dire redemander l'agrégat — et l'adresse est l'état
+ * de cette demande. Une carte filtrée se partage désormais telle quelle.
  */
 export function NetworkExplorer({
-  entries,
+  clusters,
+  facets,
+  suggestions,
   companies,
   places,
-  initialFilters = EMPTY_FILTERS,
+  filters,
 }: {
-  entries: Entry[];
+  clusters: PlaceCluster[];
+  facets: NetworkFacets;
+  suggestions: Suggestion[];
   companies: Company[];
   places: Place[];
-  /** Filtres lus dans l'URL : recherche de l'accueil, liens du conseiller. */
-  initialFilters?: Filters;
+  /** Lus dans l'URL par la page : c'est l'état de l'écran. */
+  filters: Filters;
 }) {
-  const [filters, setFilters] = useState<Filters>(initialFilters);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
-  const filtered = useMemo(
-    () => filterEntries(entries, filters),
-    [entries, filters],
-  );
-  const clusters = useMemo(() => clusterByPlace(filtered), [filtered]);
+  /**
+   * Le texte affiché dans le champ, qui prend de l'avance sur l'URL.
+   *
+   * Sans lui, chaque frappe attendrait un aller-retour pour s'afficher. Il
+   * revient à la valeur de l'URL dès que celle-ci change pour une autre
+   * raison — on choisit une suggestion, on retire la puce de recherche, on
+   * revient en arrière : c'est le rattrapage d'état pendant le rendu, et non
+   * un effet, parce qu'il n'y a rien à synchroniser au-dehors.
+   */
+  const [typed, setTyped] = useState(filters.q);
+  const [lastQuery, setLastQuery] = useState(filters.q);
+  if (filters.q !== lastQuery) {
+    setLastQuery(filters.q);
+    setTyped(filters.q);
+  }
+
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function apply(next: Filters, delay = 0) {
+    if (timer.current) clearTimeout(timer.current);
+    const go = () =>
+      startTransition(() => {
+        router.replace(networkHrefFromFilters(next), { scroll: false });
+      });
+    if (delay) timer.current = setTimeout(go, delay);
+    else go();
+  }
 
   /**
    * La ville dont le panneau est ouvert — **pas** un filtre.
@@ -58,8 +97,16 @@ export function NetworkExplorer({
      le filtre rouvre la ville qu'on regardait. */
 
   const countryNames = useMemo(
-    () => new Map(entries.map((e) => [e.place.countryCode, e.place.countryName])),
-    [entries],
+    () => new Map(facets.countries.map((c) => [c.code, c.name])),
+    [facets],
+  );
+
+  /* La même chaîne que l'URL : elle sert de clé au chargement du détail. */
+  const query = useMemo(() => networkQuery(filters), [filters]);
+
+  const resultCount = useMemo(
+    () => clusters.reduce((n, c) => n + c.total, 0),
+    [clusters],
   );
 
   const activeCount = useMemo(() => {
@@ -70,7 +117,10 @@ export function NetworkExplorer({
   }, [filters]);
 
   return (
-    <section className="relative flex-1 overflow-hidden">
+    <section
+      className="relative flex-1 overflow-hidden"
+      aria-busy={pending || undefined}
+    >
       <WorldMap
         clusters={clusters}
         selectedPlaceId={selectedPlaceId}
@@ -83,21 +133,29 @@ export function NetworkExplorer({
         <div className="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-2.5">
           <div className="flex items-start gap-2">
             <NetworkSearch
-              entries={entries}
-              value={filters.q}
-              onChange={(q) => setFilters((f) => ({ ...f, q }))}
+              suggestions={suggestions}
+              value={typed}
+              pending={pending}
+              onChange={(q) => {
+                setTyped(q);
+                /* Le mot tapé n'est pas encore une requête : on laisse finir
+                   la frappe avant de redemander un agrégat. */
+                apply({ ...filters, q }, TYPING_DELAY);
+              }}
               onApply={(patch) => {
-                setFilters((f) => ({ ...f, ...patch }));
+                const next = { ...filters, ...patch };
+                setTyped(next.q);
+                apply(next);
                 /* Choisir une ville dans la recherche revient à la désigner
                    sur la carte : le panneau s'ouvre, comme au clic. */
                 if (patch.city !== undefined) setSelectedPlaceId(patch.city);
               }}
-              resultCount={filtered.length}
+              resultCount={resultCount}
             />
             <FilterMenu
               filters={filters}
-              onChange={setFilters}
-              entries={entries}
+              onChange={(next) => apply(next)}
+              facets={facets}
               companies={companies}
               places={places}
               activeCount={activeCount}
@@ -106,8 +164,8 @@ export function NetworkExplorer({
 
           <ActiveFilters
             filters={filters}
-            onChange={setFilters}
-            onClear={() => setFilters(EMPTY_FILTERS)}
+            onChange={(next) => apply(next)}
+            onClear={() => apply(EMPTY_FILTERS)}
             companies={companies}
             places={places}
             countryNames={countryNames}
@@ -129,7 +187,7 @@ export function NetworkExplorer({
         </div>
       </div>
 
-      {filtered.length === 0 && hasActiveFilters(filters) ? (
+      {resultCount === 0 && hasActiveFilters(filters) ? (
         <div className="animate-fade pointer-events-none absolute inset-0 z-10 grid place-items-center">
           <div className="pointer-events-auto rounded-md border border-border bg-surface px-5 py-4 text-center shadow-[var(--shadow-panel)]">
             <p className="text-body text-text">Aucun résultat sur la carte</p>
@@ -138,7 +196,7 @@ export function NetworkExplorer({
             </p>
             <button
               type="button"
-              onClick={() => setFilters(EMPTY_FILTERS)}
+              onClick={() => apply(EMPTY_FILTERS)}
               className="mt-3 text-meta text-accent underline-offset-2 hover:underline"
             >
               Réinitialiser les filtres
@@ -151,16 +209,16 @@ export function NetworkExplorer({
       {selected ? (
         <>
           <div className="pointer-events-none absolute inset-0 z-30 hidden md:block">
-            <PlaceDrawer
-              place={selected.place}
-              entries={selected.entries}
+            <PlaceDetail
+              cluster={selected}
+              query={query}
               onClose={() => setSelectedPlaceId(null)}
             />
           </div>
           <div className="animate-sheet absolute inset-x-0 bottom-0 z-30 h-[58vh] overflow-hidden rounded-t-lg border-t border-border shadow-[var(--shadow-overlay)] md:hidden">
-            <PlaceDrawer
-              place={selected.place}
-              entries={selected.entries}
+            <PlaceDetail
+              cluster={selected}
+              query={query}
               onClose={() => setSelectedPlaceId(null)}
             />
           </div>
@@ -189,4 +247,3 @@ function Legend({
     </span>
   );
 }
-

@@ -5,11 +5,23 @@ import { PLACES, PLACES_BY_ID } from "./data/places";
 import { companySlug, normalizeCompanyName } from "./company-name";
 import { domainFromWebsite } from "./company-domain";
 import {
+  buildSuggestions,
+  clusterByPlace,
+  computeFacets,
   computeStats,
   contactToEntry,
   experienceToEntry,
+  filterEntries,
+  sortFacets,
+  suggestionsFrom,
+  MIN_SUGGESTION_LENGTH,
+  normalize,
+  type NetworkFacets,
   type NetworkStats,
+  type PlaceCluster,
+  type Suggestion,
 } from "./entries";
+import { countriesMatching, expandQuery } from "./search";
 import { DOMAIN_LABELS } from "./labels";
 import { describeDbError, reportDbError } from "./db-error";
 import { logSecurityEvent } from "./security-log";
@@ -26,7 +38,9 @@ import type {
   Domain,
   Entry,
   Experience,
+  Filters,
   Industry,
+  MemberStatus,
   Place,
   StudyYear,
 } from "./types";
@@ -229,13 +243,14 @@ function demoCompanies(): Company[] {
 }
 
 /**
- * Toutes les contributions, pour la carte.
+ * Toutes les contributions.
  *
- * C'est la seule lecture volontairement non filtrée : la carte projette le
- * réseau entier et la recherche est instantanée parce qu'elle travaille sur
- * un jeu déjà chargé. C'est aussi le plafond connu de l'architecture — voir
- * « Passage à l'échelle » dans docs/ARCHITECTURE.md. Toute autre page doit
- * passer par une lecture ciblée ou un agrégat.
+ * Lecture volontairement non filtrée, et la plus chère du dépôt : elle
+ * transfère le réseau entier. La carte ne s'en sert plus — elle passe par
+ * `getMapClusters` — mais le conseiller, l'annuaire et le terminal la
+ * demandent encore, et c'est le plafond connu de l'architecture (voir
+ * « Passage à l'échelle » dans docs/ARCHITECTURE.md). Une page nouvelle doit
+ * passer par une lecture ciblée ou un agrégat, jamais par ici.
  */
 export const getEntries = cache(async (): Promise<Entry[]> => {
   if (isDemoMode) {
@@ -270,6 +285,204 @@ export const getEntries = cache(async (): Promise<Entry[]> => {
     ...contacts.map((r) => contactToEntry(mapContact(r))),
   ].sort((a, b) => b.year - a.year);
 });
+
+/**
+ * Ce que la base doit recevoir pour filtrer comme `matchesFilters` le fait.
+ *
+ * La recherche libre part développée (`expandQuery`) : la base ne connaît que
+ * des clés, les libellés affichés restent dans l'application. Un identifiant
+ * de ville mal formé est ignoré plutôt que transmis — il finirait en cast
+ * raté, donc en erreur Postgres, sur une valeur qui vient de l'URL.
+ */
+function filtersPayload(filters: Filters) {
+  return {
+    entryKind: filters.entryKind,
+    continent: filters.continent,
+    country: filters.country,
+    city: filters.city && UUID.test(filters.city) ? filters.city : null,
+    company: filters.company,
+    domain: filters.domain,
+    campus: filters.campus,
+    status: filters.status,
+    year: filters.year,
+    experienceKind: filters.experienceKind,
+    tokens: expandQuery(filters.q),
+  };
+}
+
+function mapCluster(row: Row): PlaceCluster {
+  return {
+    place: {
+      id: String(row.placeId ?? ""),
+      city: String(row.city ?? "—"),
+      countryCode: String(row.countryCode ?? ""),
+      countryName: String(row.countryName ?? ""),
+      continent: (row.continent as Place["continent"]) ?? "africa",
+      lat: Number(row.lat ?? 0),
+      lng: Number(row.lng ?? 0),
+    },
+    total: Number(row.total ?? 0),
+    experienceCount: Number(row.experienceCount ?? 0),
+    contactCount: Number(row.contactCount ?? 0),
+    companySlugs: Array.isArray(row.companySlugs)
+      ? row.companySlugs.map(String)
+      : [],
+  };
+}
+
+/**
+ * Les marqueurs de la carte : une ville, son poids, ses entreprises.
+ *
+ * Le filtrage se fait en base. C'est ce qui permet à `/network` de ne plus
+ * transférer les contributions une à une : la réponse grandit avec le nombre
+ * de villes du réseau, pas avec le nombre de contributions. Le détail d'une
+ * ville est lu séparément, à l'ouverture du panneau (`getPlaceEntries`).
+ *
+ * Pas de `cache` ici, contrairement aux autres lectures : la clé serait un
+ * objet reconstruit à chaque appel, donc jamais retrouvé. La page n'appelle
+ * qu'une fois.
+ */
+export async function getMapClusters(filters: Filters): Promise<PlaceCluster[]> {
+  if (isDemoMode) {
+    return clusterByPlace(filterEntries(await getEntries(), filters));
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("map_clusters", {
+    p_filters: filtersPayload(filters),
+  });
+  if (error) throw dbFailure("getMapClusters", error);
+  return ((data ?? []) as Row[]).map(mapCluster);
+}
+
+/**
+ * Les contributions d'une ville, chargées à l'ouverture du panneau.
+ *
+ * Lecture ciblée sur `place_id` : c'est la contrepartie de l'agrégat, et la
+ * raison pour laquelle la carte n'a plus besoin du réseau entier. Les filtres
+ * en cours sont réappliqués en mémoire sur ce petit jeu, par la fonction qui
+ * sert déjà partout ailleurs — une seule définition de « correspondre ».
+ */
+export async function getPlaceEntries(
+  placeId: string,
+  filters: Filters,
+): Promise<Entry[]> {
+  if (isDemoMode) {
+    const entries = (await getEntries()).filter((e) => e.place.id === placeId);
+    return filterEntries(entries, filters);
+  }
+  if (!UUID.test(placeId)) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const [experiences, contacts] = await Promise.all([
+    fetchPaged<Row>((from, to) =>
+      supabase
+        .from("experiences")
+        .select(EXPERIENCE_SELECT)
+        .eq("place_id", placeId)
+        .order("year", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    fetchPaged<Row>((from, to) =>
+      supabase
+        .from("contacts")
+        .select(CONTACT_SELECT)
+        .eq("place_id", placeId)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+  ]);
+
+  const entries = [
+    ...experiences.map((r) => experienceToEntry(mapExperience(r))),
+    ...contacts.map((r) => contactToEntry(mapContact(r))),
+  ].sort((a, b) => b.year - a.year);
+
+  return filterEntries(entries, filters);
+}
+
+/**
+ * Les valeurs que le menu de filtres peut proposer.
+ *
+ * Pays et années dépendent de ce que le réseau contient : le menu les lisait
+ * dans le jeu d'entrées complet, il les reçoit maintenant agrégées. Non
+ * filtrées, volontairement — retirer un filtre doit rester possible.
+ */
+export const getNetworkFacets = cache(async (): Promise<NetworkFacets> => {
+  if (isDemoMode) return computeFacets(await getEntries());
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("network_facets");
+  if (error) throw dbFailure("getNetworkFacets", error);
+
+  const raw = (data ?? {}) as Partial<NetworkFacets>;
+  return sortFacets({
+    countries: raw.countries ?? [],
+    years: (raw.years ?? []).map(Number),
+    domains: (raw.domains ?? []).map((d) => ({
+      key: d.key as Domain,
+      count: Number(d.count),
+    })),
+  });
+});
+
+/**
+ * L'autocomplétion de la recherche.
+ *
+ * Les domaines sont traités à part : leur libellé n'existe que dans
+ * l'application, la base ne saurait pas dire lequel correspond à « cyber ».
+ * On compare donc ici, et on ne demande à la base que le compteur (facette).
+ */
+export async function getSuggestions(query: string): Promise<Suggestion[]> {
+  if (isDemoMode) return buildSuggestions(await getEntries(), query);
+
+  const trimmed = query.trim();
+  if (normalize(trimmed).length < MIN_SUGGESTION_LENGTH) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const [{ data, error }, facets] = await Promise.all([
+    supabase.rpc("network_suggestions", {
+      p_query: trimmed,
+      p_countries: countriesMatching(trimmed),
+    }),
+    getNetworkFacets(),
+  ]);
+  if (error) throw dbFailure("getSuggestions", error);
+
+  const raw = (data ?? {}) as Record<string, Row[]>;
+  const needle = normalize(trimmed);
+
+  return suggestionsFrom({
+    companies: (raw.companies ?? []).map((c) => ({
+      slug: String(c.slug),
+      name: String(c.name),
+      count: Number(c.count),
+    })),
+    cities: (raw.cities ?? []).map((c) => ({
+      placeId: String(c.placeId),
+      city: String(c.city),
+      countryName: String(c.countryName),
+      count: Number(c.count),
+    })),
+    countries: (raw.countries ?? []).map((c) => ({
+      code: String(c.code),
+      name: String(c.name),
+      count: Number(c.count),
+    })),
+    domains: facets.domains.filter((d) =>
+      normalize(DOMAIN_LABELS[d.key]).includes(needle),
+    ),
+    members: (raw.members ?? []).map((m) => ({
+      id: String(m.id),
+      name: String(m.name),
+      status: m.status as MemberStatus,
+      campus: m.campus as Author["campus"],
+      count: Number(m.count),
+    })),
+  });
+}
 
 export const getCompanies = cache(async (): Promise<Company[]> => {
   if (isDemoMode) {
