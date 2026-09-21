@@ -5,6 +5,7 @@ import type {
   Domain,
   ExperienceKind,
   MemberStatus,
+  StudyYear,
 } from "./types";
 
 export const DOMAIN_LABELS: Record<Domain, string> = {
@@ -45,6 +46,14 @@ export const EXPERIENCE_KIND_LABELS: Record<ExperienceKind, string> = {
   research: "Recherche",
 };
 
+export const STUDY_YEAR_LABELS: Record<StudyYear, string> = {
+  third: "3e année",
+  fourth: "4e année",
+  final: "Dernière année",
+};
+
+export const STUDY_YEARS = Object.keys(STUDY_YEAR_LABELS) as StudyYear[];
+
 export const CAMPUS_LABELS: Record<Campus, string> = {
   rabat: "Rabat",
   benguerir: "Benguerir",
@@ -53,6 +62,12 @@ export const CAMPUS_LABELS: Record<Campus, string> = {
 export const STATUS_LABELS: Record<MemberStatus, string> = {
   student: "Student",
   alumni: "Alumni",
+};
+
+/** Une phrase par statut — partagée par l'accueil et la création de profil. */
+export const STATUS_DESCRIPTIONS: Record<MemberStatus, string> = {
+  student: "Tu suis une formation au College of Computing.",
+  alumni: "Tu es diplômé·e et tu partages ton parcours.",
 };
 
 export const CONTINENT_LABELS: Record<Continent, string> = {

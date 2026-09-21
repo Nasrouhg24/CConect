@@ -14,6 +14,12 @@
 
 export type Campus = "rabat" | "benguerir";
 export type MemberStatus = "student" | "alumni";
+
+/**
+ * Année d'études d'un étudiant. Elle fixe l'objectif de stage : 3e et 4e année
+ * cherchent un PFA, la dernière année un PFE. Un alumni n'en a pas.
+ */
+export type StudyYear = "third" | "fourth" | "final";
 export type MemberRole = "member" | "moderator" | "admin";
 
 export type Domain =
@@ -76,7 +82,16 @@ export interface Company {
    */
   normalizedName: string;
   website: string | null;
-  /** URL d'un logo. Vide dans la plupart des cas : on affiche un monogramme. */
+  /**
+   * Domaine canonique (`microsoft.com`), déduit du site web à l'écriture.
+   * C'est la clé du logo : voir `src/lib/logo-provider.ts`. `null` quand aucun
+   * site n'est connu — la fiche affiche alors son monogramme.
+   */
+  domain: string | null;
+  /**
+   * URL d'un logo saisie à la main. Prioritaire sur le fournisseur, pour le cas
+   * où une entreprise a un logo que le domaine ne donne pas.
+   */
   logoUrl: string | null;
   industry: Industry;
   description: string | null;
@@ -96,6 +111,25 @@ export interface Author {
   linkedinUrl: string | null;
   /** Email institutionnel, renseigné volontairement pour être contacté. */
   contactEmail: string | null;
+  /** `null` pour un alumni, ou tant que l'étudiant ne l'a pas renseignée. */
+  studyYear: StudyYear | null;
+  /** Consentement explicite au mentorat. `null` = non renseigné. */
+  openToMentoring: boolean | null;
+}
+
+/**
+ * Ce que le membre dit de lui-même pour orienter le conseiller. Tout est
+ * facultatif : un champ vide reste vide, il n'est jamais déduit.
+ */
+export interface CareerProfile {
+  member: Author;
+  targetDomain: Domain | null;
+  targetRole: string | null;
+  skills: string[];
+  /** Codes ISO alpha-2. */
+  targetCountries: string[];
+  /** Slugs d'entreprises. */
+  targetCompanies: string[];
 }
 
 export interface Experience {
@@ -109,6 +143,12 @@ export interface Experience {
   title: string;
   summary: string | null;
   createdAt: string;
+  /** Date ISO (`YYYY-MM-DD`). `null` quand seule l'année est connue. */
+  startDate: string | null;
+  endDate: string | null;
+  /** En poste aujourd'hui : `true` ; terminé : `false` ; non renseigné : `null`. */
+  isCurrent: boolean | null;
+  skills: string[];
 }
 
 /**
@@ -149,6 +189,11 @@ export interface Entry {
   contactFirstName: string | null;
   contactLastName: string | null;
   contactLinkedinUrl: string | null;
+  /** Propres aux expériences ; vides pour un contact. */
+  startDate: string | null;
+  endDate: string | null;
+  isCurrent: boolean | null;
+  skills: string[];
 }
 
 export interface Filters {

@@ -6,6 +6,7 @@ import {
   STATUS_LABELS,
 } from "./labels";
 import type {
+  Author,
   Company,
   Contact,
   Domain,
@@ -31,6 +32,10 @@ export function experienceToEntry(e: Experience): Entry {
     contactFirstName: null,
     contactLastName: null,
     contactLinkedinUrl: null,
+    startDate: e.startDate,
+    endDate: e.endDate,
+    isCurrent: e.isCurrent,
+    skills: e.skills,
   };
 }
 
@@ -49,6 +54,10 @@ export function contactToEntry(c: Contact): Entry {
     contactFirstName: c.firstName,
     contactLastName: c.lastName,
     contactLinkedinUrl: c.linkedinUrl,
+    startDate: null,
+    endDate: null,
+    isCurrent: null,
+    skills: [],
   };
 }
 
@@ -142,6 +151,28 @@ export interface PlaceCluster {
   entries: Entry[];
   experienceCount: number;
   contactCount: number;
+}
+
+/**
+ * Un lieu peut-il être placé sur la carte ?
+ *
+ * La carte reçoit des coordonnées qui viennent de la base, donc d'une saisie :
+ * une ville sans latitude, une valeur hors plage, un `NaN` né d'une conversion
+ * ratée. Projeter l'une d'elles produit `NaN`, et un `NaN` posé dans un
+ * attribut SVG ne casse pas la carte bruyamment — il fait disparaître le point
+ * en silence, ou déplace le marqueur n'importe où.
+ *
+ * Le test est fait ici, une fois, avant la projection. `0, 0` est une
+ * coordonnée valide au sens mathématique mais ne désigne aucune ville : c'est
+ * la valeur de repli d'une ligne incomplète (voir `mapPlace`), et elle est
+ * écartée avec les autres.
+ */
+export function isPlottable(place: Place): boolean {
+  const { lat, lng } = place;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  if (lat === 0 && lng === 0) return false;
+  return true;
 }
 
 /** Regroupe les entrées par ville pour dessiner un marqueur par lieu. */
@@ -269,7 +300,15 @@ export function computeStats(entries: Entry[]): NetworkStats {
     members: members.size,
     topCompanies: rank(companyCounts, 8),
     topCities: rank(cityCounts, 8),
-    topDomains: rank(domainCounts, 9).map((d) => ({ ...d, key: d.label })),
+    /* Le libellé affiché ne vit qu'à un endroit : ici comme côté base
+       (`network_stats` renvoie la clé, `repository` la traduit). Sans cette
+       traduction, le mode démo affichait « cloud_devops » là où l'instance
+       branchée affiche « Cloud & DevOps ». */
+    topDomains: rank(domainCounts, 9).map((d) => ({
+      key: d.label,
+      label: DOMAIN_LABELS[d.label as Domain] ?? d.label,
+      count: d.count,
+    })),
     byYear: [...yearCounts.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([year, count]) => ({ year, count })),
@@ -390,4 +429,56 @@ export function buildSuggestions(
   return SUGGESTION_ORDER.flatMap((kind) =>
     [...buckets[kind].values()].sort((a, b) => b.count - a.count),
   ).slice(0, limit);
+}
+
+/**
+ * Un échantillon réel pour illustrer le réseau : une entreprise, un alumni,
+ * un étudiant, une ville — pas une visualisation des données.
+ *
+ * L'entreprise retenue est celle qui réunit le plus de statuts différents
+ * parmi ses auteurs (à égalité, le plus de contributions) : c'est elle qui
+ * montre le mieux qu'un alumni et un étudiant se croisent au même endroit.
+ * Chaque personne est prise dans cette entreprise si possible, sinon ailleurs
+ * dans le réseau ; `linked` dit laquelle des deux y est vraiment passée, pour
+ * ne dessiner que des liens qui existent.
+ */
+export interface NetworkSample {
+  company: Company | null;
+  place: Place | null;
+  alumni: { author: Author; linked: boolean } | null;
+  student: { author: Author; linked: boolean } | null;
+}
+
+export function pickNetworkSample(entries: Entry[]): NetworkSample {
+  const byCompany = new Map<string, Entry[]>();
+  for (const entry of entries) {
+    const list = byCompany.get(entry.company.id);
+    if (list) list.push(entry);
+    else byCompany.set(entry.company.id, [entry]);
+  }
+
+  let best: Entry[] = [];
+  let bestScore = -1;
+  for (const list of byCompany.values()) {
+    const statuses = new Set(list.map((e) => e.author.status)).size;
+    const score = statuses * 1000 + list.length;
+    if (score > bestScore) {
+      best = list;
+      bestScore = score;
+    }
+  }
+
+  const person = (status: Author["status"]) => {
+    const here = best.find((e) => e.author.status === status);
+    if (here) return { author: here.author, linked: true };
+    const elsewhere = entries.find((e) => e.author.status === status);
+    return elsewhere ? { author: elsewhere.author, linked: false } : null;
+  };
+
+  return {
+    company: best[0]?.company ?? null,
+    place: best[0]?.place ?? null,
+    alumni: person("alumni"),
+    student: person("student"),
+  };
 }

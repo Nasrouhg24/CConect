@@ -5,6 +5,7 @@ import { before, test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { normalizeCompanyName } from "../src/lib/company-name.ts";
+import { normalizeDomain } from "../src/lib/company-domain.ts";
 
 /**
  * Tests des règles de sécurité **de la base**, sur un vrai Postgres.
@@ -577,4 +578,61 @@ test("F-14 canonical_company_name() est d'accord avec normalizeCompanyName()", a
       `divergence sur ${JSON.stringify(name)}`,
     );
   }
+});
+
+/* ------------------------------------------------------------------ */
+/* Parité application / base sur le domaine des logos                  */
+/* ------------------------------------------------------------------ */
+
+test("normalize_company_domain() est d'accord avec normalizeDomain()", async () => {
+  // Le domaine est la clé du logo. L'application le normalise à la saisie, la
+  // base le normalise au semis et à la reprise (migration 0007) : si les deux
+  // divergent, la même entreprise a deux domaines selon le chemin d'écriture,
+  // donc deux logos — dont un qui n'existe pas.
+  const inputs = [
+    "https://www.microsoft.com/",
+    "http://OCPGROUP.MA:8443/carrieres",
+    "https://aws.amazon.com/console",
+    "https://user:secret@capgemini.com/x",
+    "https://ocpgroup.ma.",
+    "www.inwi.ma",
+    "invalid-domain",
+    "http://localhost:3000",
+    "192.168.0.1",
+    "",
+  ];
+
+  for (const input of inputs) {
+    const { rows } = await db.query<{ v: string | null }>(
+      "select public.normalize_company_domain($1::text) as v",
+      [input],
+    );
+    assert.equal(
+      rows[0].v,
+      normalizeDomain(input),
+      `divergence sur ${JSON.stringify(input)}`,
+    );
+  }
+});
+
+test("le domaine semé est déduit du site, et la base refuse une URL brute", async () => {
+  // Reprise : toute fiche semée a un site, donc un domaine, et ce domaine est
+  // exactement celui que l'application aurait calculé.
+  const { rows } = await db.query<{ website: string | null; domain: string | null }>(
+    "select website, domain from companies",
+  );
+  assert.ok(rows.length > 0, "aucune entreprise semée");
+  for (const row of rows) {
+    assert.equal(row.domain, normalizeDomain(row.website));
+  }
+
+  // La contrainte est le dernier mot : une URL complète n'entre pas, même en
+  // écrivant directement dans PostgREST.
+  await refused(
+    () =>
+      db.query(
+        "update companies set domain = 'https://www.microsoft.com/' where slug = 'microsoft'",
+      ),
+    /companies_domain_check|violates check constraint/i,
+  );
 });

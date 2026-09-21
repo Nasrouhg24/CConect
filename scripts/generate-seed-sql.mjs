@@ -61,8 +61,12 @@ const slugify = (name) =>
 const placeRow = (p) =>
   `  (${quote(p.city)}, ${quote(p.countryCode)}, ${quote(p.countryName)}, ${quote(p.continent)}, ${p.lat}, ${p.lng})`;
 
+/* Le domaine n'est pas écrit dans les données source : il se déduit du site, et
+   c'est la base qui le déduit (`normalize_company_domain`, migration 0007). Une
+   seule règle de normalisation, appliquée au même endroit pour les fiches
+   semées et pour celles créées par un membre. */
 const companyRow = (c) =>
-  `  (${quote(c.name)}, ${quote(slugify(c.name))}, public.canonical_company_name(${quote(c.name)}), ${quote(c.website)}, ${quote(c.industry)}, ${quote(c.linkedinUrl)}, ${quote(c.description)}, ${
+  `  (${quote(c.name)}, ${quote(slugify(c.name))}, public.canonical_company_name(${quote(c.name)}), ${quote(c.website)}, public.normalize_company_domain(${quote(c.website)}), ${quote(c.industry)}, ${quote(c.linkedinUrl)}, ${quote(c.description)}, ${
     c.headquartersId
       ? `(select id from places where city = ${quote(places.find((p) => p.id === c.headquartersId)?.city ?? "")} limit 1)`
       : "null"
@@ -80,7 +84,7 @@ insert into places (city, country_code, country_name, continent, lat, lng) value
 ${places.map(placeRow).join(",\n")}
 on conflict (city, country_code) do nothing;
 
-insert into companies (name, slug, normalized_name, website, industry, linkedin_url, description, headquarters_id) values
+insert into companies (name, slug, normalized_name, website, domain, industry, linkedin_url, description, headquarters_id) values
 ${companies.map(companyRow).join(",\n")}
 on conflict (normalized_name) do nothing;
 `;

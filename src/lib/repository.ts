@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { PLACES, PLACES_BY_ID } from "./data/places";
 import { companySlug, normalizeCompanyName } from "./company-name";
+import { domainFromWebsite } from "./company-domain";
 import {
   computeStats,
   contactToEntry,
@@ -15,8 +16,11 @@ import { logSecurityEvent } from "./security-log";
 import { isSupabaseConfigured } from "./env";
 import { createSupabaseServerClient } from "./supabase/server";
 import { demoStore } from "./demo-store";
+import { photoVersion } from "./profile-photo";
+import type { PhotoStore } from "./profile-photo-service";
 import type {
   Author,
+  CareerProfile,
   Company,
   Contact,
   Domain,
@@ -24,6 +28,7 @@ import type {
   Experience,
   Industry,
   Place,
+  StudyYear,
 } from "./types";
 
 /**
@@ -133,6 +138,7 @@ function mapCompany(row: Row | null): Company {
     slug: String(row?.slug ?? ""),
     normalizedName: String(row?.normalized_name ?? normalizeCompanyName(name)),
     website: (row?.website as string | null) ?? null,
+    domain: (row?.domain as string | null) ?? null,
     logoUrl: (row?.logo_url as string | null) ?? null,
     industry: (row?.industry as Industry) ?? "other",
     description: (row?.description as string | null) ?? null,
@@ -152,7 +158,18 @@ function mapAuthor(row: Row | null): Author {
     promotion: Number(row?.promotion ?? 0),
     linkedinUrl: (row?.linkedin_url as string | null) ?? null,
     contactEmail: (row?.contact_email as string | null) ?? null,
+    studyYear: (row?.study_year as StudyYear | null) ?? null,
+    openToMentoring: (row?.open_to_mentoring as boolean | null) ?? null,
   };
+}
+
+/** `experience_skills(skill:skills(label))` → `["SIEM", "Python"]` */
+function mapSkillLabels(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((link) => firstRelation((link as Row)?.skill)?.label)
+    .filter((label): label is string => typeof label === "string")
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function mapExperience(row: Row): Experience {
@@ -167,6 +184,10 @@ function mapExperience(row: Row): Experience {
     title: String(row.title),
     summary: (row.summary as string | null) ?? null,
     createdAt: String(row.created_at),
+    startDate: (row.start_date as string | null) ?? null,
+    endDate: (row.end_date as string | null) ?? null,
+    isCurrent: (row.is_current as boolean | null) ?? null,
+    skills: mapSkillLabels(row.experience_skills),
   };
 }
 
@@ -187,15 +208,16 @@ function mapContact(row: Row): Contact {
 }
 
 const COMPANY_SELECT =
-  "company:companies(id,name,slug,normalized_name,website,logo_url,industry,description,linkedin_url)";
+  "company:companies(id,name,slug,normalized_name,website,domain,logo_url,industry,description,linkedin_url)";
 const PLACE_SELECT =
   "place:places(id,city,country_code,country_name,continent,lat,lng)";
-const AUTHOR_SELECT =
-  "author:profiles(id,full_name,campus,status,promotion,linkedin_url,contact_email)";
+const PROFILE_COLUMNS =
+  "id,full_name,campus,status,promotion,linkedin_url,contact_email,study_year,open_to_mentoring";
+const AUTHOR_SELECT = `author:profiles(${PROFILE_COLUMNS})`;
 const COMPANY_COLUMNS =
-  "id,name,slug,normalized_name,website,logo_url,industry,description,linkedin_url";
+  "id,name,slug,normalized_name,website,domain,logo_url,industry,description,linkedin_url";
 
-const EXPERIENCE_SELECT = `id,domain,kind,year,title,summary,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
+const EXPERIENCE_SELECT = `id,domain,kind,year,title,summary,created_at,start_date,end_date,is_current,experience_skills(skill:skills(label)),${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
 const CONTACT_SELECT = `id,domain,first_name,last_name,position,linkedin_url,notes,created_at,${COMPANY_SELECT},${PLACE_SELECT},${AUTHOR_SELECT}`;
 
 /* ------------------------------------------------------------------ */
@@ -562,12 +584,346 @@ export const getCurrentMember = cache(async (): Promise<Author | null> => {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id,full_name,campus,status,promotion,linkedin_url,contact_email")
+    .select(PROFILE_COLUMNS)
     .eq("id", user.id)
     .maybeSingle();
 
   return data ? mapAuthor(data as Row) : null;
 });
+
+/* ------------------------------------------------------------------ */
+/* Acceptation des politiques                                          */
+/* ------------------------------------------------------------------ */
+
+export interface PolicyAcceptance {
+  /** Version acceptée, ou `null` si le membre n'a jamais accepté. */
+  version: string | null;
+  acceptedAt: string | null;
+}
+
+/**
+ * Ce que le membre connecté a accepté.
+ *
+ * Lecture séparée du profil, et non un champ de plus sur `Author` : le
+ * consentement n'est pas une donnée d'affichage, il ne doit jamais partir vers
+ * le navigateur avec la liste des auteurs d'une page.
+ */
+export const getPolicyAcceptance = cache(
+  async (memberId: string): Promise<PolicyAcceptance> => {
+    if (isDemoMode) {
+      return {
+        version: demoStore.policyVersion,
+        acceptedAt: demoStore.policyAcceptedAt,
+      };
+    }
+    if (!UUID.test(memberId)) return { version: null, acceptedAt: null };
+
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("policy_version,policy_accepted_at")
+      .eq("id", memberId)
+      .maybeSingle();
+
+    if (error) throw dbFailure("repository.getPolicyAcceptance", error);
+    const row = data as Row | null;
+    return {
+      version: (row?.policy_version as string | null) ?? null,
+      acceptedAt: (row?.policy_accepted_at as string | null) ?? null,
+    };
+  },
+);
+
+/**
+ * Enregistre l'acceptation : état courant **et** preuve datée, en une
+ * opération (`accept_policy`, voir `supabase/migrations/0010_consent.sql`).
+ * Deux requêtes depuis ici laisseraient, en cas d'échec de la seconde, un
+ * accès débloqué sans trace — exactement ce que le RGPD demande de pouvoir
+ * produire.
+ */
+export async function recordPolicyAcceptance(version: string): Promise<void> {
+  if (isDemoMode) {
+    demoStore.policyVersion = version;
+    demoStore.policyAcceptedAt = new Date().toISOString();
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("accept_policy", { p_version: version });
+  if (error) throw dbFailure("repository.recordPolicyAcceptance", error);
+}
+
+/* ------------------------------------------------------------------ */
+/* Photo de profil                                                     */
+/* ------------------------------------------------------------------ */
+
+const AVATAR_BUCKET = "avatars";
+
+/**
+ * Version opaque de la photo d'un membre, ou `null` sans photo.
+ *
+ * Lue sous la RLS de `profiles` : un visiteur qui ne peut pas lire le profil
+ * n'obtient pas non plus l'existence d'une photo.
+ */
+export const getProfilePhotoVersion = cache(
+  async (memberId: string): Promise<string | null> => {
+    if (isDemoMode) {
+      const key = demoStore.photoKeys.get(memberId);
+      return key ? photoVersion(key) : null;
+    }
+    if (!UUID.test(memberId)) return null;
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("avatar_path")
+      .eq("id", memberId)
+      .maybeSingle();
+    if (error) throw dbFailure("repository.photoVersion", error);
+    const key = (data as Row | null)?.avatar_path;
+    return typeof key === "string" ? photoVersion(key) : null;
+  },
+);
+
+/** Octets WebP de la photo d'un membre. Mêmes droits que la lecture du profil. */
+export async function readProfilePhoto(memberId: string): Promise<Uint8Array | null> {
+  if (isDemoMode) {
+    const key = demoStore.photoKeys.get(memberId);
+    return key ? (demoStore.photoObjects.get(key) ?? null) : null;
+  }
+  if (!UUID.test(memberId)) return null;
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("avatar_path")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (error) throw dbFailure("repository.readPhoto", error);
+  const key = (data as Row | null)?.avatar_path;
+  if (typeof key !== "string") return null;
+  const file = await supabase.storage.from(AVATAR_BUCKET).download(key);
+  if (file.error || !file.data) {
+    reportDbError("repository.readPhoto.storage", file.error);
+    return null;
+  }
+  return new Uint8Array(await file.data.arrayBuffer());
+}
+
+/**
+ * Stockage de la photo pour le membre connecté.
+ *
+ * En production, chaque écriture part avec la session du membre : ce sont les
+ * politiques de `storage.objects` et la contrainte sur `profiles.avatar_path`
+ * qui garantissent qu'il n'écrit que dans son propre dossier.
+ */
+export async function profilePhotoStore(): Promise<PhotoStore> {
+  if (isDemoMode) {
+    return {
+      currentKey: async (id) => demoStore.photoKeys.get(id) ?? null,
+      putObject: async (key, webp) => {
+        demoStore.photoObjects.set(key, webp);
+      },
+      setKey: async (id, key) => {
+        if (key) demoStore.photoKeys.set(id, key);
+        else demoStore.photoKeys.delete(id);
+      },
+      deleteObject: async (key) => {
+        demoStore.photoObjects.delete(key);
+      },
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const bucket = supabase.storage.from(AVATAR_BUCKET);
+  return {
+    currentKey: async (id) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("avatar_path")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw dbFailure("repository.photoKey", error);
+      const key = (data as Row | null)?.avatar_path;
+      return typeof key === "string" ? key : null;
+    },
+    putObject: async (key, webp) => {
+      const { error } = await bucket.upload(key, webp, {
+        contentType: "image/webp",
+        upsert: false,
+        cacheControl: "3600",
+      });
+      if (error) throw dbFailure("repository.photoUpload", error);
+    },
+    setKey: async (id, key) => {
+      const { error, count } = await supabase
+        .from("profiles")
+        .update({ avatar_path: key }, { count: "exact" })
+        .eq("id", id);
+      if (error) throw dbFailure("repository.photoSetKey", error);
+      if (count === 0) {
+        logSecurityEvent("ownership.denied", { action: "profiles.avatar", member: id });
+        throw new Error("Profil introuvable ou non modifiable");
+      }
+    },
+    deleteObject: async (key) => {
+      const { error } = await bucket.remove([key]);
+      if (error) throw dbFailure("repository.photoDelete", error);
+    },
+  };
+}
+
+/** Fiche d'un membre, pour l'annuaire des personnes. */
+export const getMemberById = cache(async (id: string): Promise<Author | null> => {
+  if (isDemoMode) {
+    return demoStore.members.find((m) => m.id === id) ?? null;
+  }
+  if (!UUID.test(id)) return null;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(PROFILE_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw dbFailure("repository", error);
+  return data ? mapAuthor(data as Row) : null;
+});
+
+/** Compétences déclarées par un membre (lisibles par le réseau). */
+export const getProfileSkills = cache(async (id: string): Promise<string[]> => {
+  if (isDemoMode) return demoStore.careerProfiles.get(id)?.skills ?? [];
+  if (!UUID.test(id)) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("profile_skills")
+    .select("skill:skills(label)")
+    .eq("profile_id", id);
+  if (error) throw dbFailure("repository", error);
+  return mapSkillLabels(data);
+});
+
+const EMPTY_CAREER: Omit<CareerProfile, "member"> = {
+  targetDomain: null,
+  targetRole: null,
+  skills: [],
+  targetCountries: [],
+  targetCompanies: [],
+};
+
+/**
+ * Préférences de carrière du membre connecté.
+ *
+ * Les pays et entreprises visés ne sont lisibles que par leur propriétaire
+ * (RLS, migration 0008) : cette lecture n'a de sens que pour soi.
+ */
+export const getCareerProfile = cache(
+  async (member: Author): Promise<CareerProfile> => {
+    if (isDemoMode) {
+      return { member, ...(demoStore.careerProfiles.get(member.id) ?? EMPTY_CAREER) };
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const [profile, skills, countries, companies] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("target_domain,target_role")
+        .eq("id", member.id)
+        .maybeSingle(),
+      getProfileSkills(member.id),
+      supabase
+        .from("profile_target_countries")
+        .select("country_code")
+        .eq("profile_id", member.id),
+      supabase
+        .from("profile_target_companies")
+        .select("company:companies(slug)")
+        .eq("profile_id", member.id),
+    ]);
+    for (const result of [profile, countries, companies]) {
+      if (result.error) throw dbFailure("repository.careerProfile", result.error);
+    }
+
+    const row = (profile.data ?? {}) as Row;
+    return {
+      member,
+      targetDomain: (row.target_domain as Domain | null) ?? null,
+      targetRole: (row.target_role as string | null) ?? null,
+      skills,
+      targetCountries: ((countries.data ?? []) as Row[])
+        .map((r) => String(r.country_code))
+        .sort(),
+      targetCompanies: ((companies.data ?? []) as Row[])
+        .map((r) => firstRelation(r.company)?.slug)
+        .filter((slug): slug is string => typeof slug === "string"),
+    };
+  },
+);
+
+export interface CareerProfileWrite {
+  status: Author["status"];
+  studyYear: StudyYear | null;
+  openToMentoring: boolean | null;
+  targetDomain: Domain | null;
+  targetRole: string | null;
+  skills: string[];
+  targetCountries: string[];
+  /** Identifiants d'entreprises existantes, déjà vérifiés par l'appelant. */
+  targetCompanyIds: string[];
+}
+
+export async function updateCareerProfile(
+  member: Author,
+  input: CareerProfileWrite,
+): Promise<void> {
+  // Un alumni n'a pas d'année d'études ; la base refuse la combinaison.
+  const studyYear = input.status === "student" ? input.studyYear : null;
+
+  if (isDemoMode) {
+    const slugs = input.targetCompanyIds
+      .map((id) => demoCompanies().find((c) => c.id === id)?.slug)
+      .filter((slug): slug is string => Boolean(slug));
+    // Modification en place : les expériences du store référencent ce même
+    // objet auteur, qui doit refléter le nouveau statut partout.
+    Object.assign(member, {
+      status: input.status,
+      studyYear,
+      openToMentoring: input.openToMentoring,
+    });
+    const stored = demoStore.members.find((m) => m.id === member.id);
+    if (stored && stored !== member) Object.assign(stored, member);
+    demoStore.careerProfiles.set(member.id, {
+      targetDomain: input.targetDomain,
+      targetRole: input.targetRole,
+      skills: input.skills,
+      targetCountries: input.targetCountries,
+      targetCompanies: slugs,
+    });
+    return;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      status: input.status,
+      study_year: studyYear,
+      open_to_mentoring: input.openToMentoring,
+      target_domain: input.targetDomain,
+      target_role: input.targetRole,
+    })
+    .eq("id", member.id);
+  if (error) throw dbFailure("repository.careerProfile", error);
+
+  const [skills, targets] = await Promise.all([
+    supabase.rpc("set_profile_skills", { labels: input.skills }),
+    supabase.rpc("set_profile_targets", {
+      countries: input.targetCountries,
+      company_ids: input.targetCompanyIds,
+    }),
+  ]);
+  if (skills.error) throw dbFailure("repository.profileSkills", skills.error);
+  if (targets.error) throw dbFailure("repository.profileTargets", targets.error);
+}
 
 /* ------------------------------------------------------------------ */
 /* Écriture                                                            */
@@ -576,6 +932,12 @@ export const getCurrentMember = cache(async (): Promise<Author | null> => {
 export interface NewCompanyInput {
   name: string;
   website: string | null;
+  /**
+   * Optionnel : par défaut il est déduit du site web ci-dessus. Le champ existe
+   * pour le cas où le domaine de marque diffère du site (une filiale servie
+   * depuis le domaine du groupe).
+   */
+  domain?: string | null;
   industry: Industry;
   description: string | null;
   linkedinUrl: string | null;
@@ -595,6 +957,10 @@ export async function findOrCreateCompany(
   authorId: string,
 ): Promise<{ company: Company; created: boolean }> {
   const normalized = normalizeCompanyName(input.name);
+  /* Le domaine n'est jamais inventé : il sort du site web saisi, normalisé, ou
+     il reste nul. Un domaine faux coûte un logo faux ; un domaine absent ne
+     coûte qu'un monogramme. */
+  const domain = input.domain ?? domainFromWebsite(input.website);
 
   if (isDemoMode) {
     const existing = demoCompanies().find(
@@ -614,6 +980,7 @@ export async function findOrCreateCompany(
       slug,
       normalizedName: normalized,
       website: input.website,
+      domain,
       logoUrl: input.logoUrl,
       industry: input.industry,
       description: input.description,
@@ -641,6 +1008,7 @@ export async function findOrCreateCompany(
       slug: companySlug(input.name),
       normalized_name: normalized,
       website: input.website,
+      domain,
       logo_url: input.logoUrl,
       industry: input.industry,
       description: input.description,
@@ -794,16 +1162,37 @@ export async function deleteContact(id: string, member: Author): Promise<void> {
   }
 }
 
+export interface ExperienceWrite {
+  companyId: string;
+  placeId: string;
+  domain: Experience["domain"];
+  kind: Experience["kind"];
+  year: number;
+  title: string;
+  summary: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  isCurrent: boolean | null;
+  skills: string[];
+}
+
+function experienceColumns(input: ExperienceWrite) {
+  return {
+    company_id: input.companyId,
+    place_id: input.placeId,
+    domain: input.domain,
+    kind: input.kind,
+    year: input.year,
+    title: input.title,
+    summary: input.summary,
+    start_date: input.startDate,
+    end_date: input.endDate,
+    is_current: input.isCurrent,
+  };
+}
+
 export async function createExperience(
-  input: {
-    companyId: string;
-    placeId: string;
-    domain: Experience["domain"];
-    kind: Experience["kind"];
-    year: number;
-    title: string;
-    summary: string | null;
-  },
+  input: ExperienceWrite,
   author: Author,
 ): Promise<void> {
   if (isDemoMode) {
@@ -823,32 +1212,29 @@ export async function createExperience(
       title: input.title,
       summary: input.summary,
       createdAt: new Date().toISOString(),
+      startDate: input.startDate,
+      endDate: input.endDate,
+      isCurrent: input.isCurrent,
+      skills: input.skills,
     });
     return;
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("experiences").insert({
-    author_id: author.id,
-    company_id: input.companyId,
-    place_id: input.placeId,
-    domain: input.domain,
-    kind: input.kind,
-    year: input.year,
-    title: input.title,
-    summary: input.summary,
-  });
+  const { data, error } = await supabase
+    .from("experiences")
+    .insert({ author_id: author.id, ...experienceColumns(input) })
+    .select("id")
+    .single();
   if (error) throw dbFailure("repository", error);
-}
 
-export interface ExperienceWrite {
-  companyId: string;
-  placeId: string;
-  domain: Experience["domain"];
-  kind: Experience["kind"];
-  year: number;
-  title: string;
-  summary: string | null;
+  if (input.skills.length > 0) {
+    const { error: skillsError } = await supabase.rpc("set_experience_skills", {
+      experience: (data as Row).id,
+      labels: input.skills,
+    });
+    if (skillsError) throw dbFailure("repository.experienceSkills", skillsError);
+  }
 }
 
 export async function updateExperience(
@@ -876,6 +1262,10 @@ export async function updateExperience(
       year: input.year,
       title: input.title,
       summary: input.summary,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      isCurrent: input.isCurrent,
+      skills: input.skills,
     });
     return;
   }
@@ -883,18 +1273,7 @@ export async function updateExperience(
   const supabase = await createSupabaseServerClient();
   const { error, count } = await supabase
     .from("experiences")
-    .update(
-      {
-        company_id: input.companyId,
-        place_id: input.placeId,
-        domain: input.domain,
-        kind: input.kind,
-        year: input.year,
-        title: input.title,
-        summary: input.summary,
-      },
-      { count: "exact" },
-    )
+    .update(experienceColumns(input), { count: "exact" })
     .eq("id", id)
     .eq("author_id", member.id);
 
@@ -903,6 +1282,12 @@ export async function updateExperience(
     logSecurityEvent("ownership.denied", { action: "experiences.update", member: member.id });
     throw new Error("Expérience introuvable ou non modifiable");
   }
+
+  const { error: skillsError } = await supabase.rpc("set_experience_skills", {
+    experience: id,
+    labels: input.skills,
+  });
+  if (skillsError) throw dbFailure("repository.experienceSkills", skillsError);
 }
 
 export async function deleteExperience(id: string, member: Author): Promise<void> {

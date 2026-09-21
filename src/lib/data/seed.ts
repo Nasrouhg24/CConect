@@ -1,4 +1,5 @@
 import { companySlug, normalizeCompanyName } from "../company-name";
+import { domainFromWebsite } from "../company-domain";
 import type {
   Author,
   Company,
@@ -33,6 +34,9 @@ const company = (seed: CompanySeed): Company => {
     slug,
     normalizedName: normalizeCompanyName(seed.name),
     website: seed.website,
+    /* Le domaine se déduit du site, il ne se saisit pas : le jeu de démo ne
+       contient donc aucun domaine inventé, seulement des domaines lus. */
+    domain: domainFromWebsite(seed.website),
     logoUrl: null,
     industry: seed.industry,
     description: seed.description,
@@ -210,6 +214,10 @@ const author = (
   promotion,
   linkedinUrl,
   contactEmail,
+  /* Non renseignés : le jeu de démo ne prête à personne une année d'études ni
+     un consentement au mentorat. Le membre les pose lui-même depuis /profile. */
+  studyYear: null,
+  openToMentoring: null,
 });
 
 export const AUTHORS: Author[] = [
@@ -231,7 +239,21 @@ function au(id: string): Author {
   return found;
 }
 
-export const EXPERIENCES: Experience[] = [
+type SeedExperience = Omit<Experience, "startDate" | "endDate" | "isCurrent" | "skills">;
+
+/* Aucune date, aucun statut « en poste », aucune compétence n'est ajouté au jeu
+   de démo : une expérience `job` de 2024 dont on ignore la fin reste « statut
+   non renseigné ». Inventer ces champs fabriquerait exactement les faux
+   parcours que le conseiller doit refuser de montrer. */
+const withUnknownCareerFields = (e: SeedExperience): Experience => ({
+  ...e,
+  startDate: null,
+  endDate: null,
+  isCurrent: null,
+  skills: [],
+});
+
+export const EXPERIENCES: Experience[] = ([
   {
     id: "e-1", author: au("u-ahmed"), company: co("microsoft"), place: place("p-paris"),
     domain: "cybersecurity", kind: "pfe", year: 2022,
@@ -332,7 +354,7 @@ export const EXPERIENCES: Experience[] = [
     summary: "Cartographie des données clients, conformité loi 09-08.",
     createdAt: "2025-11-21T08:30:00Z",
   },
-];
+] satisfies SeedExperience[]).map(withUnknownCareerFields);
 
 export const CONTACTS: Contact[] = [
   {

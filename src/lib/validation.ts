@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { CAMPUSES, DOMAINS, EXPERIENCE_KINDS, INDUSTRIES } from "./labels";
-import type { Campus, Domain, ExperienceKind, Industry } from "./types";
+import { CAMPUSES, DOMAINS, EXPERIENCE_KINDS, INDUSTRIES, STUDY_YEARS } from "./labels";
+import { MAX_EXPERIENCE_SKILLS, MAX_PROFILE_SKILLS, parseSkillList } from "./skills";
+import type { Campus, Domain, ExperienceKind, Industry, StudyYear } from "./types";
 
 /**
  * Validation partagée client/serveur.
@@ -62,6 +63,10 @@ const baseFields = {
   domain: domainSchema,
 };
 
+const monthField = z
+  .union([z.string().trim().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mois invalide"), z.literal("")])
+  .optional();
+
 export const experienceInputSchema = z
   .object({
     ...baseFields,
@@ -70,8 +75,80 @@ export const experienceInputSchema = z
     year: z.coerce.number().int().min(2005).max(2100),
     title: z.string().trim().min(3).max(120),
     summary: z.string().trim().max(1000).optional(),
+    startMonth: monthField,
+    endMonth: monthField,
+    /** `current` : en poste / en cours. `ended` : terminé. Vide : non renseigné. */
+    progress: z.enum(["current", "ended", ""]).optional(),
+    skills: z.string().max(600).optional(),
   })
-  .superRefine(requireCompany);
+  .superRefine(requireCompany)
+  .superRefine((value, ctx) => {
+    if (value.startMonth && value.endMonth && value.endMonth < value.startMonth) {
+      ctx.addIssue({ code: "custom", path: ["endMonth"], message: "La fin précède le début." });
+    }
+    if (value.progress === "current" && value.endMonth) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endMonth"],
+        message: "Un poste en cours n'a pas de date de fin.",
+      });
+    }
+    if (value.startMonth && Number(value.startMonth.slice(0, 4)) < 2005) {
+      ctx.addIssue({ code: "custom", path: ["startMonth"], message: "Date trop ancienne." });
+    }
+    if (parseSkillList(value.skills ?? "", MAX_EXPERIENCE_SKILLS) === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["skills"],
+        message: `${MAX_EXPERIENCE_SKILLS} compétences au plus, 40 caractères chacune.`,
+      });
+    }
+  });
+
+/**
+ * Champs de carrière d'une expérience, prêts pour la base.
+ *
+ * Quand un mois de début est saisi, l'année en découle : la carte lit `year`,
+ * la frise lit `start_date`, et la base refuse qu'ils se contredisent. Une
+ * date de fin suffit à dire « terminé » ; sans elle ni choix explicite, le
+ * statut reste inconnu.
+ */
+export function careerFieldsFromInput(input: ExperienceInput) {
+  const startDate = input.startMonth ? `${input.startMonth}-01` : null;
+  const endDate = input.endMonth ? `${input.endMonth}-01` : null;
+  const isCurrent =
+    input.progress === "current" ? true : input.progress === "ended" || endDate ? false : null;
+  return {
+    year: startDate ? Number(startDate.slice(0, 4)) : input.year,
+    startDate,
+    endDate: isCurrent ? null : endDate,
+    isCurrent,
+    skills: parseSkillList(input.skills ?? "", MAX_EXPERIENCE_SKILLS) ?? [],
+  };
+}
+
+export const studyYearSchema = z.enum(STUDY_YEARS as [StudyYear, ...StudyYear[]]);
+
+export const careerProfileSchema = z
+  .object({
+    status: z.enum(["student", "alumni"]),
+    studyYear: z.union([studyYearSchema, z.literal("")]).optional(),
+    openToMentoring: z.enum(["yes", "no", ""]).optional(),
+    targetDomain: z.union([domainSchema, z.literal("")]).optional(),
+    targetRole: z.union([z.string().trim().min(2).max(120), z.literal("")]).optional(),
+    skills: z.string().max(1500).optional(),
+    targetCountries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(5, "5 pays au plus."),
+    targetCompanies: z.array(z.string().trim().min(1).max(80)).max(10, "10 entreprises au plus."),
+  })
+  .superRefine((value, ctx) => {
+    if (parseSkillList(value.skills ?? "", MAX_PROFILE_SKILLS) === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["skills"],
+        message: `${MAX_PROFILE_SKILLS} compétences au plus, 40 caractères chacune.`,
+      });
+    }
+  });
 
 export const contactInputSchema = z
   .object({
