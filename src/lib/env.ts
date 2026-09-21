@@ -13,6 +13,20 @@ export const SUPABASE_ANON_KEY =
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 /**
+ * Clé publiable du fournisseur de logos (Logo.dev).
+ *
+ * Elle part dans le bundle navigateur — c'est sa raison d'être : elle signe une
+ * URL d'image, pas un accès à des données. La clé secrète (`sk_…`) du même
+ * service ne doit jamais être mise ici ni préfixée `NEXT_PUBLIC_`.
+ *
+ * Vide = aucun logo distant n'est demandé, l'application affiche des
+ * monogrammes. Voir `src/lib/logo-provider.ts`.
+ */
+export const LOGO_DEV_TOKEN = (
+  process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN ?? ""
+).trim();
+
+/**
  * Domaines email autorisés à créer un compte.
  * Le contrôle définitif est côté base (trigger + RLS) ; celui-ci évite
  * seulement d'envoyer un lien de connexion à une adresse hors périmètre.

@@ -13,7 +13,8 @@
 export type SecurityEvent =
   | "ownership.denied"
   | "rate_limit.tripped"
-  | "session.missing";
+  | "session.missing"
+  | "csrf.rejected";
 
 export function logSecurityEvent(
   event: SecurityEvent,

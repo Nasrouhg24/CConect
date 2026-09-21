@@ -22,13 +22,17 @@ export const GENERIC_DB_ERROR =
 
 /** SQLSTATE applicatif : message déjà destiné à l'utilisateur (migration 0005). */
 const APP_RATE_LIMIT = "CC429";
+/** Plafond de lignes d'une liste (compétences, pays cibles) — migration 0008. */
+const APP_ROW_CAP = "CC413";
 
 export function describeDbError(error: unknown): string {
   const details = (error ?? {}) as DbErrorLike;
   const code = String(details.code ?? "");
   const raw = `${details.message ?? ""} ${details.details ?? ""}`;
 
-  if (code === APP_RATE_LIMIT) return String(details.message || GENERIC_DB_ERROR);
+  if (code === APP_RATE_LIMIT || code === APP_ROW_CAP) {
+    return String(details.message || GENERIC_DB_ERROR);
+  }
 
   if (raw.includes("no_private_details")) {
     return "Retire l'adresse email ou le numéro de téléphone : la plateforme ne publie aucune coordonnée privée.";
