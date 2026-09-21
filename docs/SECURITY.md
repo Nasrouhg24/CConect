@@ -114,6 +114,62 @@ conséquence est explicite — une faille XSS donnerait la session, pas seulemen
 une action dans la page. C'est la raison pour laquelle la CSP a été refaite
 autour d'un nonce.
 
+## 8. Politiques publiées et consentement
+
+Trois documents vivent dans l'application, pas dans un fichier joint :
+`/legal/confidentialite`, `/legal/cookies`, `/legal/conditions`
+(`src/app/legal/`). Ils sont engendrés depuis `src/lib/legal.ts` — registre des
+traitements et inventaire des cookies compris — pour qu'une politique ne
+puisse pas décrire un produit d'il y a six mois.
+
+**Le consentement est bloquant.** `POLICY_VERSION` est la date de mise en
+ligne ; tant que `profiles.policy_version` ne l'égale pas, `src/proxy.ts`
+renvoie toute requête vers une route protégée sur `/legal/accepter`.
+
+Le blocage vit dans le proxy et **pas** dans la coquille, et c'est le point à
+ne pas défaire : un layout racine n'est pas re-rendu lors d'une navigation côté
+client, si bien qu'un écran posé là laisse passer le premier lien cliqué. Le
+proxy voit chaque requête — navigations douces et envois de Server Action
+compris, puisque ceux-ci repassent par le même chemin.
+
+`/legal` reste ouvert (refuser la lecture de ce qu'on demande d'accepter serait
+absurde), `/login` aussi. Un profil absent n'est pas bloqué : c'est
+l'inscription qui recueille l'acceptation, et elle ne peut pas se dérouler
+derrière un blocage. Le paramètre `?next=` est ramené à un chemin interne aux
+deux bouts — page et Server Action — pour ne pas offrir une redirection
+ouverte.
+
+En mode démo, rien n'est bloqué : sans base, il n'y a aucun consentement à
+enregistrer. L'écran reste visitable sur `/legal/accepter`.
+
+Changer `POLICY_VERSION` redemande donc le consentement à **tout le monde**.
+C'est fait pour ; ce n'est pas à faire pour une faute de frappe.
+
+**La preuve est séparée de l'état.** `profiles` porte l'état courant, que
+l'application lit à chaque requête ; `consent_events` (migration 0010) porte
+l'historique en ajout seul — ni `update`, ni `delete`, pas même pour son
+propriétaire. C'est ce que demande le RGPD art. 7.1 : pouvoir *démontrer* le
+consentement, y compris après qu'une nouvelle version a écrasé l'état courant.
+La suppression du compte l'emporte (`on delete cascade`) : le droit à
+l'effacement passe devant la conservation d'une preuve devenue sans objet.
+
+La version enregistrée est toujours lue côté serveur, jamais reçue du
+formulaire — sinon un champ caché modifié ferait enregistrer l'acceptation d'un
+texte jamais affiché. Rien n'est pré-coché : une case cochée par défaut n'est
+pas un consentement (RGPD art. 4.11).
+
+**Cookies.** Les trois cookies du site sont strictement nécessaires (session,
+vérificateur PKCE, mémoire du bandeau). D'où un bandeau qui *informe* au lieu
+de demander : proposer « Refuser » serait mentir, puisque refuser le cookie de
+session revient à refuser de se connecter. `tests/legal.test.ts` verrouille
+l'inventaire et vérifie qu'aucun traceur n'entre dans le bundle ; ajouter un
+cookie non nécessaire fait tomber ce raisonnement et impose alors un vrai
+recueil de consentement, refus aussi simple que l'acceptation.
+
+**Avant la mise en ligne.** `NEXT_PUBLIC_LEGAL_CONTACT` doit être renseignée :
+sans elle, les pages légales affichent un avertissement à la place du contact,
+plutôt qu'une adresse inventée derrière laquelle un droit ne s'exercerait pas.
+
 ## Limites connues (à traiter — voir ROADMAP)
 
 - **Limitation de débit.** Les écritures sont plafonnées à 12 par minute, par
@@ -126,7 +182,9 @@ autour d'un nonce.
 - **Consentement des contacts externes** : la plateforme ne le collecte pas.
   La règle est donc de ne publier qu'une information qu'on pourrait assumer
   devant la personne concernée. Un contact peut demander son retrait par
-  signalement.
+  signalement — et la politique de confidentialité le lui promet noir sur
+  blanc (`/legal/confidentialite`, section « Les personnes mentionnées par un
+  membre »), avec la base légale invoquée et les limites qui l'encadrent.
 
 ## Signaler une faille
 

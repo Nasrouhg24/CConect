@@ -57,6 +57,20 @@ impossible. En plus de ça :
   écriture réservée à l'auteur de la contribution ;
 - chaque entrée peut être signalée par n'importe quel membre.
 
+Ces garanties sont publiées, pas seulement appliquées : la [politique de
+confidentialité](src/app/legal/confidentialite/page.tsx), la [politique de
+cookies](src/app/legal/cookies/page.tsx) et les [conditions
+d'utilisation](src/app/legal/conditions/page.tsx) vivent dans l'application
+(`/legal/…`) et sont engendrées depuis `src/lib/legal.ts` — registre des
+traitements et inventaire des cookies compris. Leur acceptation est **bloquante** :
+tant qu'un membre n'a pas accepté la version en cours, la coquille remplace
+l'application entière par l'écran d'acceptation, et l'accord est horodaté dans
+une table en ajout seul.
+
+Côté cookies, il n'y en a que trois, tous strictement nécessaires — aucune
+mesure d'audience, aucun traceur, aucun cookie tiers. Le bandeau informe donc,
+il ne quémande pas un consentement sans objet.
+
 Détail complet : [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Stack
@@ -68,6 +82,10 @@ Détail complet : [docs/SECURITY.md](docs/SECURITY.md).
 - **zod** pour la validation, partagée client/serveur
 
 ## Structure
+
+Pour se repérer sans tout lire : [docs/MAP.md](docs/MAP.md) va d'une intention
+(« changer un libellé », « ajouter une colonne ») aux fichiers concernés, et
+`docs/map/` détaille couche par couche.
 
 ```
 src/

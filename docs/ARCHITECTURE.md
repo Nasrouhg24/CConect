@@ -96,7 +96,9 @@ contacts et expériences référencent `companies.id` ; aucun ne stocke un nom
 d'entreprise en texte libre. C'est ce qui rend le graphe navigable dans les
 deux sens : d'une offre vers l'entreprise, d'une entreprise vers ses contacts.
 
-- **`companies`** : nom, secteur, logo, site, LinkedIn, description, siège.
+- **`companies`** : nom, secteur, site, **domaine**, logo, LinkedIn, description,
+  siège. Le domaine (`microsoft.com`) est déduit du site à l'écriture et sert de
+  clé au logo — aucune image n'est stockée, voir `src/lib/logo-provider.ts`.
 - **`job_offers`** : annonce ouverte — titre, durée, technologies, lien,
   date de publication et d'expiration.
 - **`contacts`** : une personne connue dans une entreprise (prénom, nom, poste,
@@ -266,3 +268,43 @@ Lien magique Supabase, restreint aux domaines de `NEXT_PUBLIC_ALLOWED_EMAIL_DOMA
 | Une seule couleur d'accent | Voir [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) : la couleur porte une information, elle ne décore pas. |
 | `contact_email` et `linkedin_url` sur `profiles` | Ce sont les coordonnées **du membre**, qu'il choisit d'exposer. La règle « aucune coordonnée d'un contact externe » reste intacte. |
 | Pas d'OAuth LinkedIn | Rien n'est configuré côté fournisseur ; prétendre le contraire serait mentir. La colonne `linkedin_id` existe pour que l'ajout soit une migration additive. |
+
+## Graphe de carrière et conseiller (migration 0008)
+
+**Une expérience est une relation Personne → Entreprise**, pas un attribut du
+profil. Un membre peut avoir un PFA en 2024, un PFE en 2025 et un emploi en
+2026 dans la même entreprise : trois lignes d'`experiences`. Aucune table de
+relation parallèle n'a été créée ; la migration ajoute seulement ce qui
+manquait :
+
+| Besoin | Où |
+|---|---|
+| PFA / PFE selon l'année | `profiles.study_year` (`third`, `fourth`, `final`), réservé aux étudiants par contrainte |
+| En poste / ancien poste | `experiences.is_current`, `start_date`, `end_date` — tous nullables |
+| Compétences | référentiel `skills` (clé canonique générée) + `profile_skills`, `experience_skills` |
+| Préférences | `profile_target_countries`, `profile_target_companies` — lisibles par leur seul propriétaire |
+| Mentorat | `profiles.open_to_mentoring` — `null` = non renseigné |
+
+**`null` veut dire inconnu, jamais « non ».** Un emploi sans `is_current` ni
+date de fin s'affiche « statut non renseigné » ; il ne compte ni comme actuel
+ni comme passé. Aucune ligne existante n'a été complétée par la migration, et
+le jeu de démo ne porte ni date, ni statut, ni compétence.
+
+La logique vit en fonctions pures, testées sans base :
+
+- `src/lib/career.ts` — statut d'emploi, frises, comptes de **personnes**
+  distinctes par entreprise, recherche de personnes, parcours observés (un
+  enchaînement n'est présenté comme tendance qu'à partir de deux personnes).
+- `src/lib/advisor.ts` — `buildAdvisorReport(profil, réseau)`. Pas de modèle de
+  langage : chaque phrase est un gabarit rempli par une donnée, chaque étape a
+  un lien, rien ne s'affiche à zéro, et un profil incomplet est signalé plutôt
+  que deviné. Les compétences sont « dans le profil », « pas dans le profil »
+  ou inconnues — jamais « manquantes ».
+- `src/lib/links.ts` — constructeurs *et* lecteurs d'URL filtrées (`/network`,
+  `/people`). Tout lien du conseiller est relu par la page d'arrivée avec le
+  même code ; un paramètre invalide est ignoré.
+
+Écrans : `/advisor` (tableau), `/people` et `/people/[id]` (frises), section
+« Connexions UM6P » de la fiche entreprise, section « Parcours et objectifs »
+de `/profile`. Tests : `tests/career-advisor.test.ts` (logique) et
+`tests/career-database.test.ts` (contraintes et RLS sur Postgres jetable).
