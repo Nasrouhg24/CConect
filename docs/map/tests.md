@@ -32,6 +32,9 @@ node --test --experimental-strip-types --import=./tests/ts-resolver.mjs \
 | `rate-limit.test.ts` | Plafond d'écritures côté application. |
 | `security.test.ts` | CSP, redirections, journal, garde-fous applicatifs. |
 | `legal.test.ts` | Inventaire des cookies, absence de traceur, consentement non présumé, `?next=` filtré, blocage dans le proxy. |
+| `actions.test.ts` | Server Actions en mode démo : `FormData` en entrée, résultat ou redirection en sortie, chemins invalidés consignés. |
+| `proxy.test.ts` | `proxy.ts` exécuté : garde de routes, blocage du consentement, CSP à nonce. Supabase remplacé au niveau HTTP (`fetch`). |
+| `repository-demo.test.ts` | Interface publique de `repository.ts` en mode démo, sans base. |
 | `map.test.ts` | Cette carte : tout fichier est inscrit, tout chemin cité existe. |
 
 ## Suites sur un vrai Postgres
@@ -53,7 +56,41 @@ production.
 |---|---|
 | `pg-harness.ts` | Postgres jetable : `bootDatabase`, `as`, `refused`, `uuid`. |
 | `logo-corpus.ts` | Ce qu'un membre colle réellement dans « Site web ». |
-| `ts-resolver.mjs`, `ts-resolver-hooks.mjs` | Ajoutent l'extension `.ts` aux imports relatifs. |
+| `ts-resolver.mjs`, `ts-resolver-hooks.mjs` | Ajoutent l'extension `.ts` aux imports relatifs, et rendent `next/*` et `server-only` chargeables sous Node. |
+| `server-only-stub.mjs` | Module vide qui remplace `server-only` sous `node --test`. |
+| `next-cache-stub.mjs` | Remplace `next/cache` : consigne les `revalidatePath` au lieu d'exiger une requête en cours. |
+
+## Tests de bout en bout
+
+`e2e/` : Playwright, un vrai navigateur devant le **build de production** en
+mode démo (la CSP à nonce et l'hydratation ne se comportent pas comme en
+`next dev`). Hors de `npm test` : ce n'est ni `node:test` ni la couche `lib/`.
+Configuration : `playwright.config.ts`.
+
+```
+npm run e2e                                   # construit, sert sur :3100, joue tout
+npx playwright test e2e/network.spec.ts       # une seule suite
+```
+
+| Fichier | Couvre |
+|---|---|
+| `e2e/smoke.spec.ts` | Chaque écran s'ouvre, dit son titre, ne lève rien dans la console (CSP, hydratation). |
+| `e2e/network.spec.ts` | Carte, panneau de ville, parcours clavier, zoom, recherche, filtres portés par l'URL. |
+| `e2e/contribute.spec.ts` | Publier un contact jusqu'à la fiche entreprise ; email refusé ; champs obligatoires. |
+| `e2e/profile.spec.ts` | Canaux de contact et parcours : enregistrement, rechargement, refus. |
+| `e2e/legal.spec.ts` | Avis cookies, aucune requête vers un tiers, consentement. |
+| `e2e/mobile.spec.ts` | Feuille basse au toucher. |
+| `e2e/fixtures.ts` | `problems` (échoue sur toute erreur de console ou de page) et `visit`. |
+
+- Le store du mode démo vit dans le processus du serveur : les tests tournent
+  l'un après l'autre et remettent ce qu'ils changent. L'acceptation des
+  politiques est à usage unique par serveur : relancer le serveur pour rejouer
+  `e2e/legal.spec.ts`.
+- En local, un serveur déjà lancé sur `:3100` est réutilisé, et c'est **son**
+  build qui est testé. Après une modification du code : `npm run build`, puis
+  relancer le serveur.
+- `tsc` et `next build` vérifient aussi `e2e/` : une erreur de type y casse le
+  build.
 
 ## Écrire un test ici
 

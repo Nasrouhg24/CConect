@@ -77,7 +77,8 @@ test("les cartes existent", () => {
 const SOURCES = walk("src", /\.(ts|tsx)$/);
 const SUITES = walk("tests", /\.(ts|mjs)$/);
 const MIGRATIONS = walk("supabase/migrations", /\.sql$/);
-const UNIQUE = unambiguousNames([...SOURCES, ...SUITES, ...MIGRATIONS]);
+const E2E = walk("e2e", /\.ts$/);
+const UNIQUE = unambiguousNames([...SOURCES, ...SUITES, ...MIGRATIONS, ...E2E]);
 
 test("chaque fichier source est inscrit dans une carte", () => {
   const missing = SOURCES.filter((f) => !inscribed(f, UNIQUE));
@@ -87,6 +88,11 @@ test("chaque fichier source est inscrit dans une carte", () => {
 test("chaque suite de tests est inscrite", () => {
   const missing = SUITES.filter((f) => !inscribed(f, UNIQUE));
   assert.deepEqual(missing, [], "tests absents de docs/map/tests.md");
+});
+
+test("chaque spec de bout en bout est inscrite", () => {
+  const missing = E2E.filter((f) => !inscribed(f, UNIQUE));
+  assert.deepEqual(missing, [], "specs absentes de docs/map/tests.md");
 });
 
 test("chaque migration est inscrite", () => {
@@ -108,9 +114,10 @@ test("chaque chemin cité par une carte existe", () => {
     ...walk("docs", /\.md$/),
     ...walk("supabase", /\.sql$/),
     ...walk("scripts", /\.mjs$/),
+    ...walk("e2e", /\.ts$/),
     // Les documents de la racine (AGENTS.md, README.md…) sont cités eux aussi.
     ...readdirSync(path("."), { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(".md"))
+      .filter((e) => e.isFile() && (e.name.endsWith(".md") || e.name === "playwright.config.ts"))
       .map((e) => e.name),
   ];
 

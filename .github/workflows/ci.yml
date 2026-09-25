@@ -51,3 +51,22 @@ jobs:
             --exclude=node_modules \
             --exclude=.next \
             src supabase scripts tests next.config.ts
+
+  # Bout en bout : un vrai navigateur devant le build de production, en mode
+  # démo (aucun secret, aucune base). Job séparé : un test de navigateur lent ou
+  # instable ne doit pas masquer le verdict de `check`. Le rapport HTML
+  # (`playwright-report/`) n'est pas publié : `upload-artifact` demande un SHA à
+  # épingler, et un SHA ne s'invente pas.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # `playwright.config.ts` construit et lance le serveur lui-même.
+      - run: npm run e2e

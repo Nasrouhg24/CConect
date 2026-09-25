@@ -68,6 +68,7 @@ supabase/
   migrations/   Le schéma fait foi : RLS, contraintes, RPC. → map/database.md
   seed.sql      Jeu de démonstration, engendré par scripts/generate-seed-sql.mjs
 tests/          node:test + PGlite (vrai Postgres jetable). → map/tests.md
+e2e/            Playwright sur le build de production, mode démo. → map/tests.md
 docs/           ARCHITECTURE, SECURITY, DESIGN_SYSTEM, ROADMAP, SETUP_SUPABASE
                 et cette carte.
 public/         Cinq SVG d'illustration hérités du gabarit Next.

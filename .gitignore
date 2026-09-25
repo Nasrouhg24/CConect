@@ -44,3 +44,7 @@ next-env.d.ts
 !.env.example
 
 .vercel
+
+# tests de bout en bout (Playwright)
+/e2e/.results/
+/playwright-report/
