@@ -83,8 +83,10 @@ export async function editContact(
   }
 
   // On mémorise l'ancienne entreprise pour rafraîchir sa page aussi : sinon
-  // le contact resterait visible sur une fiche qu'il a quittée.
-  const previous = await getContact(id);
+  // le contact resterait visible sur une fiche qu'il a quittée. Le slug, pas
+  // l'objet : en mode démo `getContact` rend celui du store, que
+  // `updateContact` modifie en place.
+  const previousSlug = (await getContact(id))?.company.slug;
 
   try {
     await updateContact(
@@ -111,8 +113,8 @@ export async function editContact(
   revalidatePath("/network");
   revalidatePath("/companies");
   revalidatePath(`/companies/${company.slug}`);
-  if (previous && previous.company.slug !== company.slug) {
-    revalidatePath(`/companies/${previous.company.slug}`);
+  if (previousSlug && previousSlug !== company.slug) {
+    revalidatePath(`/companies/${previousSlug}`);
   }
   revalidatePath("/profile");
 

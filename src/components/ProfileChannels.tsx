@@ -21,7 +21,13 @@ export function ProfileChannels({ member }: { member: Author }) {
     !member.linkedinUrl && !member.contactEmail,
   );
   const [state, formAction, pending] = useActionState<ProfileResult | null, FormData>(
-    updateContactChannels,
+    async (previous, formData) => {
+      const result = await updateContactChannels(previous, formData);
+      // Le message de réussite n'existe que dans la vue lecture : sans cette
+      // sortie, un enregistrement réussi ne montrait rien du tout.
+      if (result.ok) setEditing(false);
+      return result;
+    },
     null,
   );
 
